@@ -21,8 +21,15 @@ from Include.Thick import*
 
 
 ########## Ajusta-se ao ecra e foca os widgets - Windows ######
+import sys
 import ctypes
-ctypes.windll.shcore.SetProcessDpiAwareness(1)
+
+# Adjust DPI awareness on Windows only
+if sys.platform == "win32":
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception as e:
+        print(f"Warning: DPI awareness setting failed: {e}")
 ###########################################################
 # Returns the index of the Tab the user is on
 ###########################################################
@@ -1421,7 +1428,7 @@ def File_Manager(Choice, Nature, Action):
                 tk.Button(wng.warning, command =  lambda: wng.warning.destroy(), 
                           text = 'Return').pack()
                 
-            Dir = os.scandir('Files\Sources\Values')
+            Dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
             source_list.clear()
             for entry in Dir:
                 if entry.is_file():
@@ -1595,8 +1602,14 @@ class Skeleton:
 
         ############# A Janela Mae ##############
         self.main = tk.Tk()
-        self.main.title('ARC_TF')
-        self.main.state('zoomed')
+        self.main.title('ARC-TF')
+        try:
+            if sys.platform == 'win32':
+                self.main.state('zoomed')
+            else:
+                self.main.attributes('-zoomed', True)  # May work on Linux (e.g., GNOME)
+        except Exception as e:
+            print(f"Window zoom/maximize not supported: {e}")
         self.main.configure(background = 'dark grey')
 
         ############## A barra de Ferramentas e opcoes #################
@@ -2299,14 +2312,14 @@ class Plot:
         self.figure_canvas.draw()
 
 ############################################################################
-Dir = os.scandir('Files\Sources\Values')
+Dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
 source_list = []
 for entry in Dir:
     if entry.is_file():
         temp = (os.path.splitext(entry.name))
         source_list.append(temp[0])
 
-Dir = os.scandir('Files\Materials')
+Dir = os.scandir(os.path.join('Files', 'Materials'))
 materials_list = []
 for entry in Dir:
     if entry.is_file():

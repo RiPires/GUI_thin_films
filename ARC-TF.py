@@ -796,62 +796,72 @@ def ResultManager():
             ).grid(row=j, column=1)
     return
         
-##########################################################################################
-# Retira os resultados que nao estao checked e atualiza o txt dos resultados 
-##########################################################################################        
+#####################################################################
+# Remove unchecked results from the GUI and update the results file #
+#####################################################################       
 def Unchecked_Results():
+    """
+    Unchecked_Results: Remove unchecked results from the GUI and update the results file
+    
+    This function:
+    - Scans all result widgets (checkbuttons and labels)
+    - Removes GUI elements corresponding to unchecked channels
+    - Updates the results file with only the checked channels and counts
+    """
+    num = Current_Tab()  # Get the current tab index
 
-    num = Current_Tab()
-    i = 0
-    j = 0
-    k = 0
-    Eraser = []
-    Aux = []
+    Eraser = []  # List to store widgets (checkbuttons and labels) to be potentially destroyed
+    Aux = []     # List to store checked lines for rewriting the results file
 
+    # Collect all widgets (both checkbuttons and labels) from the ResultFrame
     for widget in TabList[num][1].ResultFrame.winfo_children():
+        Eraser.append(widget)
 
-        Eraser.append(widget) # Aqui guardamos todos os widgets que exibem os resultados.
-                                # E necessario guardar num vetor, para que depois sejam apagados os corretos
+    # Read the results file as raw lines (strings) containing channel and counts
+    values = File_Reader(TabList[num][3], '0', 'String', 'No')
 
-    values = File_Reader(TabList[num][3], '0', 'String', 'No') # Aqui vao se buscar os valores de channel e counts
-                                                        # Como nao se fazem contas, apenas utilizamos a linha de
-                                                        # string que contem ambos valores
+    j = 0  # Index for Eraser list (widgets)
+    k = 0  # Index for values list (file lines)
+
     for i in range(len(TabList[num][1].Var_Data)):
 
-        if TabList[num][1].Var_Data[i].get() == 1:
-            Aux.append(values[k])   # Caso seja selecionada a opcao, guardamos a linha para depois reescrever
-                                    # o documento que contem os resultados, de forma a guardar os pretendidos
-    
-        elif TabList[num][1].Var_Data[i].get() == -1: 
-            # No caso do Var_data devolver um -1, significa que se removeu a selecao do valor
-            # Nesse caso, tornamos esse valor num 0, destruimos o checkbutton no Eraser[j]
-            # e destruimos a label dos counts no Eraser[j + 1]
+        var_value = TabList[num][1].Var_Data[i].get()
+
+        if var_value == 1:
+            # If checked, keep this line for rewriting the file
+            Aux.append(values[k])
+
+        elif var_value == -1:
+            # If unchecked (-1), remove widgets and reset variable to 0
             TabList[num][1].Var_Data[i].set(0)
 
+            # Destroy checkbutton and label widgets (assumes pairs)
             Eraser[j].destroy()
             Eraser[j + 1].destroy()
 
-        elif TabList[num][1].Var_Data[i].get() == 0:
-            # Caso haja um 0 no meio, na mudanca de dados, tiramos valores de iteracao do vetor Aux
-            # e do vetor Eraser, para manter todas as contas certas
+        elif var_value == 0:
+            # If variable is already 0, adjust indices to keep synchronization
             k -= 1
             j -= 2
 
+        # Increment widget index by 2 (checkbutton + label)
         j += 2
+        # Increment values line index by 1
         k += 1
 
+    # Move all variables with value 0 to the end of Var_Data list to keep selected variables grouped
+    # Do this after main loop to avoid index shifting issues during iteration
     for i in range(len(TabList[num][1].Var_Data)):
-        # Este for esta separado para nao haver confusoes de indices no primeiro ciclo
-        # Aqui, se for detetado um 0, pomos o IntVar no final do vetor Var_Data e
-        # eliminamos os Var_Data[i] = 0 do meio dos valores selecionados/nao selecionados
         if TabList[num][1].Var_Data[i].get() == 0:
             TabList[num][1].Var_Data.append(TabList[num][1].Var_Data[i])
             TabList[num][1].Var_Data.pop(i)
 
-    with open(TabList[num][3], "w") as file: # Por fim, reescrevemos o documento dos resultados
-                                            # com os resultados unchecked removidos
-        for i in range(len(Aux)):
-            file.write(Aux[i] + '\n')
+    # Rewrite the results file with only checked (selected) entries
+    with open(TabList[num][3], "w") as file:
+        for line in Aux:
+            file.write(line + '\n')
+    
+    return
 
 #########################################################################################
 # Faz a regressao linear dos resultados

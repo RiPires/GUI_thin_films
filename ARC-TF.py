@@ -306,10 +306,8 @@ def Final_Results(tracker):
     method = TabList[num][1].Algorithm_Method.get()
 
     # Decide which analysis to apply
-    if tracker < 0 and method == 'ROI Select':
-        LinearizeWithErrors()
-    elif tracker < 0 and method != 'ROI Select':
-        Linearize()
+    if tracker < 0:
+        LinearRegression()
     elif tracker > 0:
         Calculate_Thickness()
     elif tracker == 0:
@@ -863,173 +861,83 @@ def Unchecked_Results():
     
     return
 
-#########################################################################################
-# Faz a regressao linear dos resultados
-#########################################################################################
-def Linearize():
+#####################################################################################
+# Performs linear regression (with or without errors) on selected data and displays #
+# results in the GUI.                                                               #
+#####################################################################################
+def LinearRegression():
+    """
+    Performs linear regression on selected data and displays results in the GUI.
 
+    This function automatically detects whether to use errors (uncertainties) in the regression
+    based on the current analysis method ('ROI Select' uses errors, others do not).
+
+    - For standard methods:
+        * Reads channel (x-axis) data from results file.
+        * Collects selected decay values (y-axis) from GUI.
+        * Checks if x and y data match in length.
+        * Calculates slope (m), intercept (b), and their uncertainties (sigma_m, sigma_b).
+        * Converts units if needed (MeV or keV).
+        * Saves regression results to a file.
+        * Displays the results in the GUI with options to clear.
+
+    - For 'ROI Select':
+        * Reads centroids and errors from results file.
+        * Collects selected decay energies from GUI.
+        * Checks if centroids and energies match in length.
+        * Performs weighted linear regression using uncertainties.
+        * Converts units if needed (MeV or keV).
+        * Saves regression results to a file.
+        * Displays the results in the GUI with options to clear.
+
+    Dependencies:
+        - Uses global TabList, TabTracker, and tkinter for GUI elements.
+        - Relies on helper functions: File_Reader, Calib, Precision, ClearWidget.
+
+    Returns:
+        None
+    """
     num = Current_Tab()
-    
-    xaxis = []
-    yaxis = []
-    values = File_Reader(TabList[num][3], ',', 'No', 'No') # Le os dados dos picos
+    method = TabList[num][1].Algorithm_Method.get()
 
-    for i in range(0, len(values)):
-        xaxis.append(values[i][0])  # Junto os canais apenas ao valor xaxis
+    # --- ROI Select: Use errors in regression ---
+    if method == 'ROI Select':
+        centroids = []
+        errors = []
+        energies = []
+        # Read centroids and errors from results file
+        values = File_Reader(TabList[num][3], ',', 'Yes', 'No')
+        for i in range(len(values)):
+            centroids.append(values[i][0])
+            errors.append(values[i][1])
+        # Collect selected decay energies from GUI
+        for i in range(len(TabList[num][1].DecayList)):
+            if TabList[num][1].DecayList[i].get() != -1:
+                energies.append(TabList[num][1].DecayList[i].get())
+        # Sort for consistency
+        centroids = sorted(centroids)
+        errors = sorted(errors)
+        energies = sorted(energies)
+        # Check for matching lengths
+        if len(centroids) != len(energies):
+            wng.popup('Invalid Linear Regression Configuration')
+            tk.Label(wng.warning, 
+                     text="Number of Radiation Decay does not match the number of Peaks detected.\n").pack()
+            tk.Label(wng.warning, 
+                     text="Please adjust the Searching Algorithms or the number of Decay Energy.\n\n").pack()
+            tk.Button(wng.warning, text='Return', command=lambda: wng.warning.destroy()).pack()
+            return
 
-    for i in range(0, len(TabList[num][1].DecayList)):
-
-        if TabList[num][1].DecayList[i].get() != -1: 
-# Na lista que guarda os valores dos alfas, juntam se aqueles que foram selecionados pelo utilizador
-            yaxis.append(TabList[num][1].DecayList[i].get()) 
-            
-    
-    xvalues = sorted(xaxis) #Organizam se ambos dados por ordem
-    yvalues = sorted(yaxis)
-    
-    if len(xvalues) != len(yvalues): # Esta condicao verifica se para a regressao linear
-                                     # existe uma relacao sobrejetiva
-        wng.popup('Invalid Linear Regression Configuration')
-        tk.Label(wng.warning, 
-                 text = "Number of Radiation Decay does not " + 
-                 "match the number of Peaks detected.\n").pack()
-        tk.Label(wng.warning, text ="Please adjust the Searching Algorithms or the " +
-                 "number of Decay Energy.\n\n").pack()
-        tk.Button(wng.warning, text = 'Return',
-                    command = lambda: wng.warning.destroy()).pack()
-      
-    else:
+        # Clear previous regression output and show regression frame
         ClearWidget('Linear', 0)
-        TabList[num][1].LinearRegressionFrame.grid(row = 3, columnspan = 2, pady = 5)
+        TabList[num][1].LinearRegressionFrame.grid(row=3, columnspan=2, pady=5)
 
-        avgx = sum(xvalues) #Guardam se os valores das medias dos canais e da radiacao alfa
-        avgy = sum(yvalues)
-        avgx = avgx / len(xvalues)
-        avgy = avgy / len(yvalues)
-
-        Placeholder1 = 0
-        Placeholder2 = 0
-
-        for i in range(len(xvalues)):
-            Placeholder1 = Placeholder1 + ((xvalues[i] - avgx) * (yvalues[i] - avgy))
-            Placeholder2 = Placeholder2 + (xvalues[i] - avgx)**2
-
-        m = Placeholder1 / Placeholder2 # Valor do declive
-        b = avgy - m * avgx  # Valor da ordenada na origem
-
-        sigma = 0
-        Placeholder1 = 0
-        Placeholder2 = 0
-
-        # Estes proximos somatorios e contas servem para obter as incertezas dos valores do
-        # declive e da ordenada de origem
-        for i in range(0, len(xvalues)):
-            sigma = (yvalues[i] - m * xvalues[i] - b)**2 + sigma
-            Placeholder1 = xvalues[i]**2 + Placeholder1
-
-        Placeholder2 = (sum(xvalues))**2
-        sigma = sigma / (len(xvalues) - 2) 
-
-        sigma_m = math.sqrt(sigma / ( Placeholder1 - (Placeholder2/len(xvalues))))
-        sigma_b = math.sqrt((sigma * Placeholder1)/((len(xvalues) * Placeholder1) - Placeholder2))
-
-        if TabList[num][1].energy.get() == 1000:
-            unit_string = 'MeV'
-            significant_digits_m = Precision('%.2g' % (sigma_m))
-            significant_digits_b = Precision('%.2g' % (sigma_b))
-
-        elif TabList[num][1].energy.get() == 1:
-            unit_string = 'keV'
-            m = m * 1000
-            sigma_m = sigma_m * 1000
-            b = b * 1000
-            sigma_b = sigma_b * 1000
-            if sigma_m > 1:
-                significant_digits_m = 0
-            else:
-                significant_digits_m = Precision('%.2g' % (sigma_m))
-            if sigma_b > 1:
-                significant_digits_b = 0            
-            else:
-                significant_digits_b = Precision('%.2g' % (sigma_b))
-
-        with open(TabList[num][4], 'w') as my_file:
-            # Aqui, escrevem se os resultados num documento txt para outras funcoes
-            # poderem aceder
-            my_file.write(unit_string + '\n')
-            my_file.write(str(m) + '\n')
-            my_file.write(str(sigma_m) + '\n')
-            my_file.write(str(b) + '\n')
-            my_file.write(str(sigma_b) + '\n')
-            my_file.write(str(significant_digits_m) + '\n')
-            my_file.write(str(significant_digits_b))
-
-        # Por fim, escreve se no GUI os resultados obtidos
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = '(' + unit_string + ')').grid(
-            row = 0, column = 0)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Values').grid(row = 0, column = 1)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Uncertainty').grid(row = 0, column = 2)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Slope').grid(row = 1, column = 0)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Intersect').grid(row = 2, column = 0)
-
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' %(6, m)).grid(row = 1, column = 1)
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' % (6, sigma_m)).grid(row = 1, column = 2)
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' %(6, b)).grid(row = 2, column = 1)
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' % (6, sigma_b)).grid(row = 2, column = 2)
-
-        tk.Button(TabList[num][1].LinearRegressionFrame, text = 'Clear Regression', 
-                  command = lambda: ClearWidget('Linear', 1 )).grid(row = 3, column = 0, columnspan = 3)
-
-#########################################################################################
-# Faz a regressao linear dos resultados com input da incerteza nosa canais
-#########################################################################################
-def LinearizeWithErrors():
-
-    num = Current_Tab()
-    
-    centroids = []
-    errors = []
-    energies = []
-    values = File_Reader(TabList[num][3], ',', 'Yes', 'No') # Le os dados dos picos
-
-    for i in range(0, len(values)):
-        centroids.append(values[i][0])  # Junto os canais apenas ao valor xaxis
-        errors.append(values[i][1])
-
-    for i in range(0, len(TabList[num][1].DecayList)):
-        if TabList[num][1].DecayList[i].get() != -1: 
-            # Na lista que guarda os valores dos alfas, juntam se aqueles que foram selecionados pelo utilizador
-            energies.append(TabList[num][1].DecayList[i].get()) 
-            
-    centroids = sorted(centroids) #Organizam se ambos dados por ordem
-    errors = sorted(errors)
-    energies = sorted(energies)
-    
-    if len(centroids) != len(energies): # Esta condicao verifica se para a regressao linear
-                                        # existe uma relacao sobrejetiva
-        wng.popup('Invalid Linear Regression Configuration')
-        tk.Label(wng.warning, 
-                 text = "Number of Radiation Decay does not " + 
-                 "match the number of Peaks detected.\n").pack()
-        tk.Label(wng.warning, text ="Please adjust the Searching Algorithms or the " +
-                 "number of Decay Energy.\n\n").pack()
-        tk.Button(wng.warning, text = 'Return',
-                    command = lambda: wng.warning.destroy()).pack()
-      
-    else:
-        ClearWidget('Linear', 0)
-        TabList[num][1].LinearRegressionFrame.grid(row = 3, columnspan = 2, pady = 5)
-
-        ## Faz a a regressao linear com a função do ficheiro Calibration
+        # Perform weighted linear regression using Calib()
         m, b, sigma_m, sigma_b = Calib(energies, centroids, errors)
 
+        # Handle units and significant digits
         if TabList[num][1].energy.get() == 1000:
             unit_string = 'MeV'
-
         elif TabList[num][1].energy.get() == 1:
             unit_string = 'keV'
             m = m * 1000
@@ -1037,9 +945,8 @@ def LinearizeWithErrors():
             b = b * 1000
             sigma_b = sigma_b * 1000
 
+        # Save regression results to file
         with open(TabList[num][4], 'w') as my_file:
-            # Aqui, escrevem se os resultados num documento txt para outras funcoes
-            # poderem aceder
             my_file.write(unit_string + '\n')
             my_file.write(str(m) + '\n')
             my_file.write(str(sigma_m) + '\n')
@@ -1048,25 +955,108 @@ def LinearizeWithErrors():
             my_file.write(str(6) + '\n')
             my_file.write(str(6))
 
-        # Por fim, escreve se no GUI os resultados obtidos
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = '(' + unit_string + ')').grid(
-            row = 0, column = 0)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Values').grid(row = 0, column = 1)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Uncertainty').grid(row = 0, column = 2)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Slope').grid(row = 1, column = 0)
-        tk.Label(TabList[num][1].LinearRegressionFrame, text = 'Intersect').grid(row = 2, column = 0)
+        # Display results in GUI
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='(' + unit_string + ')').grid(row=0, column=0)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Values').grid(row=0, column=1)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Uncertainty').grid(row=0, column=2)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Slope').grid(row=1, column=0)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Intersect').grid(row=2, column=0)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='%.*f' % (6, m)).grid(row=1, column=1)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='%.*f' % (6, sigma_m)).grid(row=1, column=2)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='%.*f' % (6, b)).grid(row=2, column=1)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='%.*f' % (6, sigma_b)).grid(row=2, column=2)
+        tk.Button(TabList[num][1].LinearRegressionFrame, text='Clear Regression', 
+                  command=lambda: ClearWidget('Linear', 1)).grid(row=3, column=0, columnspan=3)
 
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' %(6, m)).grid(row = 1, column = 1)
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' % (6, sigma_m)).grid(row = 1, column = 2)
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' %(6, b)).grid(row = 2, column = 1)
-        tk.Label(TabList[num][1].LinearRegressionFrame, 
-                 text = '%.*f' % (6, sigma_b)).grid(row = 2, column = 2)
+    # --- Standard: No errors in regression ---
+    else:
+        xaxis = []
+        yaxis = []
+        # Read peak data from results file: returns list of [channel, counts]
+        values = File_Reader(TabList[num][3], ',', 'No', 'No')
+        # Extract channel numbers as x-axis values
+        for val in values:
+            xaxis.append(val[0])
+        # Extract selected decay energies as y-axis values
+        for var in TabList[num][1].DecayList:
+            if var.get() != -1:
+                yaxis.append(var.get())
+        # Sort both datasets for consistency
+        xvalues = sorted(xaxis)
+        yvalues = sorted(yaxis)
+        # Ensure both datasets have the same length (necessary for linear regression)
+        if len(xvalues) != len(yvalues):
+            wng.popup('Invalid Linear Regression Configuration')
+            tk.Label(wng.warning, 
+                     text="Number of Radiation Decay does not match the number of Peaks detected.\n").pack()
+            tk.Label(wng.warning, 
+                     text="Please adjust the Searching Algorithms or the number of Decay Energy.\n\n").pack()
+            tk.Button(wng.warning, text='Return', command=lambda: wng.warning.destroy()).pack()
+            return
 
-        tk.Button(TabList[num][1].LinearRegressionFrame, text = 'Clear Regression', 
-                  command = lambda: ClearWidget('Linear', 1 )).grid(row = 3, column = 0, columnspan = 3)
+        # Clear previous regression output and show regression frame
+        ClearWidget('Linear', 0)
+        TabList[num][1].LinearRegressionFrame.grid(row=3, columnspan=2, pady=5)
+
+        # Calculate averages of x and y
+        avgx = np.sum(xvalues) / len(xvalues)
+        avgy = np.sum(yvalues) / len(yvalues)
+
+        # Calculate slope (m) and intercept (b)
+        numerator = np.sum((x - avgx) * (y - avgy) for x, y in zip(xvalues, yvalues))
+        denominator = np.sum((x - avgx) ** 2 for x in xvalues)
+        m = numerator / denominator
+        b = avgy - m * avgx
+
+        # Calculate uncertainties (sigma_m and sigma_b)
+        residual_sum = np.sum((y - m * x - b) ** 2 for x, y in zip(xvalues, yvalues))
+        residual_variance = residual_sum / (len(xvalues) - 2)
+        sum_x2 = np.sum(x ** 2 for x in xvalues)
+        sum_x = np.sum(xvalues)
+        n = len(xvalues)
+        sigma_m = math.sqrt(residual_variance / (sum_x2 - (sum_x ** 2) / n))
+        sigma_b = math.sqrt(residual_variance * sum_x2 / (n * sum_x2 - sum_x ** 2))
+
+        # Handle units and significant digits depending on energy unit selected
+        energy_unit = TabList[num][1].energy.get()
+        if energy_unit == 1000:
+            unit_string = 'MeV'
+            significant_digits_m = Precision('%.2g' % sigma_m)
+            significant_digits_b = Precision('%.2g' % sigma_b)
+        elif energy_unit == 1:
+            unit_string = 'keV'
+            # Convert slope and intercept and their uncertainties to keV
+            m *= 1000
+            sigma_m *= 1000
+            b *= 1000
+            sigma_b *= 1000
+            significant_digits_m = 0 if sigma_m > 1 else Precision('%.2g' % sigma_m)
+            significant_digits_b = 0 if sigma_b > 1 else Precision('%.2g' % sigma_b)
+
+        # Write regression results to file for use in other functions
+        with open(TabList[num][4], 'w') as my_file:
+            my_file.write(unit_string + '\n')
+            my_file.write(str(m) + '\n')
+            my_file.write(str(sigma_m) + '\n')
+            my_file.write(str(b) + '\n')
+            my_file.write(str(sigma_b) + '\n')
+            my_file.write(str(significant_digits_m) + '\n')
+            my_file.write(str(significant_digits_b))
+
+        # Display results in GUI with proper formatting
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='(' + unit_string + ')').grid(row=0, column=0)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Values').grid(row=0, column=1)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Uncertainty').grid(row=0, column=2)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Slope').grid(row=1, column=0)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text='Intercept').grid(row=2, column=0)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text=f'{m:.6f}').grid(row=1, column=1)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text=f'{sigma_m:.6f}').grid(row=1, column=2)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text=f'{b:.6f}').grid(row=2, column=1)
+        tk.Label(TabList[num][1].LinearRegressionFrame, text=f'{sigma_b:.6f}').grid(row=2, column=2)
+        tk.Button(TabList[num][1].LinearRegressionFrame, text='Clear Regression', 
+                  command=lambda: ClearWidget('Linear', 1)).grid(row=3, column=0, columnspan=3)
+
+    return
 
 ###############################################################################
 # Este e o algoritmo que determina a distancia quadrada minima entre pontos

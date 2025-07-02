@@ -251,24 +251,34 @@ def File_Reader(Document, Separator, Decimal, Upload):
                     lines[i] = int(lines[i])
             return lines
 
-##############################################################################################
-# Devolve o numero de algarismos significativos com base numa incerteza
-###############################################################################################
+###########################################################################
+# Returns the number of significant figures based on an uncertainty value #
+###########################################################################
 def Precision(value):
+    """
+    Calculate the number of decimal places required to represent the first significant digit
+    of based on an uncertainty value.
 
-    counter = 0
-    number = float(value)
+    Parameters:
+        value (float or str): The uncertainty value.
 
-    if abs(number) < 1:
-        while abs(number) < 1:
-            number = number * 10
-            counter += 1
-        counter = counter + 1
-        return counter
-    
-    elif abs(number) > 1:
-        counter = 0
-        return counter
+    Returns:
+        int: Number of decimal places needed for the first significant digit.
+             Returns 0 if the value is zero or invalid.    
+    """
+    try:
+        number = abs(float(value))
+        if number == 0:
+            return 0
+        # Get exponent of the first significant digit
+        exponent = int(math.floor(math.log10(number)))
+        # If exponent >= 0, no decimal places needed
+        if exponent >= 0:
+            return 0
+        else:
+            return abs(exponent)
+    except Exception:
+        return 0
 
 ############################################################################################
 # Le os resultados finais e exibe os na primeira tab

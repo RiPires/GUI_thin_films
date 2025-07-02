@@ -394,197 +394,266 @@ def Final_Results(tracker):
                     lambda e: Notebook.mat_canvas.configure(
                         scrollregion=Notebook.mat_canvas.bbox('all'), width=e.width)) 
 
-###########################################################################################
-# Permite a escolha de regressoes lineares por parte do utilizador
-###########################################################################################
+###############################################################################
+# Allows the user to choose which linear regression(s) to use for calibration #
+###############################################################################
 def Calib_Choice():
+    """
+    Opens a popup window allowing the user to select which linear regression(s) to use for calibration.
 
-    num = Current_Tab()
-    Measure = []
+    This function scans all calibration tabs (where TabTracker < 0) and checks for the existence of valid
+    regression result files. For each valid regression, a checkbox is presented to the user. The user can
+    select one or more regressions to be used in subsequent calculations (e.g., thickness determination).
+    If no valid regressions are found, a warning popup is shown.
 
-    for i in range(0, len(TabList[num][1].Regression_List)):
-            TabList[num][1].Regression_List[i].set(-1)
-    # Este for previne as escolhas antigas de interferir com a nova selecao de regressoes
-    
-    for i in range(0, len(TabTracker)):
+    Behavior:
+        - Resets all previous regression selections for the current tab.
+        - Lists all calibration tabs with valid regression files.
+        - If none are found, displays a warning and instructions.
+        - Otherwise, displays a selection menu with checkboxes for each regression.
+        - User selections are stored in Regression_List variables for the current tab.
 
-        if TabTracker[i] < 0: # Certifica que so le ficheiros com regressoes lineares
+    Dependencies:
+        - Uses global TabList and TabTracker structures.
+        - Relies on tkinter for GUI elements and wng for popup management.
 
-            if os.path.isfile(TabList[i][4]) == True:
-                Measure.append(TabTracker[i])
-    # Neste ciclo, o measure regista quantas tabs de calibracao tem uma regressao linear,
-    # ja que o tabtracker identifica as tabs de calibracao como sendo negativas,
-    # o measure tera sempre valores entre -1 e -10
+    Returns:
+        None
+    """
+    num = Current_Tab()    # Get the index of the currently active tab
+    validCalib = []        # List of calibration tabs with valid regressions
+    validCalib_index = []  # Corresponding index in TabList for each valid regression
+    regression_value_map = {}
 
-    if not Measure:
+    # Reset all previous selections (checkboxes set to -1 = unchecked)
+    for i in range(len(TabList[num][1].Regression_List)):
+        TabList[num][1].Regression_List[i].set(-1)
+
+    # Identify all calibration tabs (TabTracker < 0) with valid regression result files
+    for i in range(len(TabTracker)):
+        if TabTracker[i] < 0 and os.path.isfile(TabList[i][4]):
+            validCalib.append(TabTracker[i])    # e.g., -1, -2, ...
+            validCalib_index.append(i)          # Store actual tab index for reference
+
+    # If no valid calibration regressions found, show warning popup
+    if not validCalib:
         wng.popup('No Linear Regressions detected')
-        tk.Label(wng.warning, text = 'No linear Regressions were detected.\n\n' + 
-                 'Please Perform a Calibration Trial before calculating the Film\'s Thickness.\n\n').pack()
-        tk.Button(wng.warning, text = 'Return', command = lambda: wng.warning.destroy()).pack()
-    # No caso do Measure estar vazio, aparece um aviso que nenhuma regressao linear foi efetuada
+        tk.Label(wng.warning, text=(
+            'No linear regressions were detected.\n\n'
+            'Please perform a Calibration Trial before calculating the film\'s thickness.\n\n')).pack()
+        tk.Button(wng.warning, text='Return', command=lambda: wng.warning.destroy()).pack()
 
-    else: # Caso contrario, entra o popup para selecionar quais as regressoes a utilizar
+    # Otherwise, show selection popup for user to choose regressions
+    else:
         wng.popup('Linear Regression Selection Menu')
-        tk.Label(wng.warning, text = 'Please Select a Calibration Trial \n' +
-                 'Choosing more than one calibration will average the slopes and intersects.\n\n').pack()
+        tk.Label(wng.warning, text=(
+            'Please select one or more calibration trials.\n'
+            'Choosing multiple calibrations will average the slopes and intercepts.\n\n')).pack()
 
-        for i in range(0, len(Measure)):
-            button_Choice = tk.Checkbutton(wng.warning, 
-                                           text = 'Linear Regression of Calibration Trial ' +
-                                             str(-Measure[i]),
-                                            variable = TabList[num][1].Regression_List[i], 
-                                            onvalue = -Measure[i], offvalue = -1)
+        for i in range(len(validCalib)):
+            tab_idx = validCalib_index[i]  # Actual index in TabList and TabTracker
+            if i >= len(TabList[num][1].Regression_List):
+                print(f"Warning: More regressions than Regression_List slots (i={i})")
+                break
+            # Create a checkbox for each valid calibration regression
+            # Use a unique positive value for onvalue
+            on_value = i + 1
+            regression_value_map[on_value] = TabTracker[tab_idx]
+            button_Choice = tk.Checkbutton(
+                            wng.warning,
+                            text=f'Linear Regression of Calibration Trial {-validCalib[i]}',
+                            variable=TabList[num][1].Regression_List[i],  # Correct indexing
+                            onvalue=on_value,
+                            offvalue=-1)
+            TabList[num][1].Regression_List[i].set(-1)  # Ensure unchecked by default
             button_Choice.pack()
-        # Neste ciclo, por cada regressao linear efetuada, o utilizador pode esolher utilizar uma ou
-        # mais, para a calibracao. A Regression_List guarda valores 1 ou -1 sendo que o indice desta
-        # lista, e utilizado depois nos calculos finais
+        
+        # Store the mapping for later use (e.g., as an attribute of the tab or globally)
+        TabList[num][1].regression_value_map = regression_value_map
 
-        tk.Button(wng.warning, text = 'Return', command = lambda: ClearWidget('Popup', 0)).pack()
+        # Button to simply close the popup (could be extended with a Confirm button)
+        tk.Button(wng.warning, text='Return', command=lambda: ClearWidget('Popup', 0)).pack()
 
-################################################################################################
-# Calcula a espessura por cada pico e a media das espessuras
-################################################################################################
+#####################################################################################
+# Calculate the material thickness for each detected peak and the average thickness #
+# based on selected calibration regressions and stopping power data                 #
+#####################################################################################
 def Final_Calculation():
+    """
+    Workflow:
+    - Reads the calibration regressions selected by the user.
+    - Calculates average calibration parameters (slope and intercept).
+    - Reads material stopping power data from file.
+    - Converts peak channels to energy using calibration.
+    - Integrates inverse stopping power over energy intervals to estimate thickness.
+    - Converts units according to user selection.
+    - Calculates average thickness and uncertainty.
+    - Displays results in the GUI and writes to an output file.
+
+    Assumptions:
+    - TabList and TabTracker structures contain calibration and peak data.
+    - Material stopping power file has specific format with density and atomic mass on first line.
+    - User selections for material, units, and regressions are valid.
+
+    Side effects:
+    - Updates GUI widgets with thickness results.
+    - Writes thickness results and uncertainty to a file.
+    """
 
     num = Current_Tab()
     ClearWidget('Thickness', 0)
-    TabList[num][1].ThicknessFrame.grid(row = 5, columnspan = 3, pady = 5)
+    TabList[num][1].ThicknessFrame.grid(row=5, columnspan=3, pady=5)
+
     units_list = ['nm', '\u03bcm',
-                  '\u03bcg' + ' cm' + '{}'.format('\u207B' + '\u00b2'),
-                  '10' + '{}'.format('\u00b9' + '\u2075') + ' Atoms' 
-                   + ' cm' + '{}'.format('\u207B' + '\u00b3')]
+                  '\u03bcg cm\u207B\u00B2',  # µg cm⁻²
+                  '10\u00B9\u2075 Atoms cm\u207B\u00B3']  # 10¹⁵ Atoms cm⁻³
 
-    units_values = [10.0**9, 10.0**6, 0.0, -1.0]
-    index = units_values.index(TabList[num][1].units.get())
+    units_values = [1e9, 1e6, 0.0, -1.0]
 
-    Material_choice = TabList[num][1].Mat.get() # Determina qual o ficheiro do material a ler
-    Material_choice = 'Files\Materials\\' +  Material_choice + '.txt'
+    # Get the index of the currently selected units from the units_values list
+    try:
+        index = units_values.index(TabList[num][1].units.get())
+    except ValueError:
+        print("Error: Selected unit not found in units_values list.")
+        return
 
-    slope = 0
-    intersect = 0
-    points = []
-    regressions_index = []
-    material_data = File_Reader(Material_choice, '|', 'Yes', 'No')  #Daqui obtemos a lista que ira guardar
-                                                                    # as energias e o stopping power do material em uso
+    # Determine the material file path based on user selection
+    material_filename = 'Files/Materials/' + TabList[num][1].Mat.get() + '.txt'
+    material_data = File_Reader(material_filename, '|', 'Yes', 'No')
+    # material_data expected to contain energy and stopping power info for chosen material
 
-# Este ciclo determina a tab de calibracao cuja regressao foi selecionada para uso
-# o regressions_index guarda o indice do Tab Tracker
-# Com este valor, podemos aceder ao indice do TabList para obter todos os dados que queiramos
-    for i in range(0, len(TabList[num][1].Regression_List)):
+    # Initialize accumulators for slope and intercept from selected regressions
+    slope_sum = 0.0
+    intercept_sum = 0.0
+    selectedCalibs = []
+    regression_value_map = getattr(TabList[num][1], 'regression_value_map', {})
 
-        if TabList[num][1].Regression_List[i].get() != -1:
-            regressions_index.append(TabTracker.index(-TabList[num][1].Regression_List[i].get()))
+    # Build the list of indices from TabTracker corresponding to selected regressions
+    for i, reg_var in enumerate(TabList[num][1].Regression_List):
+        val = reg_var.get()
+        if val != -1 and val in regression_value_map:
+            # val is negative identifier, e.g. -1, -2, corresponding to calibration tabs in TabTracker
+            try:
+                idx = TabTracker.index(regression_value_map[val])  # Find index in TabTracker with positive value
+                selectedCalibs.append(idx)
+            except ValueError:
+                print(f"Warning: Regression selection value {regression_value_map[val]} not found in TabTracker")
 
-    i = 0
-    j = 0
-    Aux_Channel = []
-    Temp = []
+    if not selectedCalibs:
+        print("No valid regression selected. Aborting calculation.")
+        return
 
-    for j in range(0, len(TabList[regressions_index[i]][1].DecayList)):
-        if TabList[regressions_index[0]][1].DecayList[j].get() != -1: # Aqui, vamos buscar os valores de
-                                                                        # decaimento que a utilizar para o intervalo
-            Aux_Channel.append(TabList[regressions_index[0]][1].DecayList[j].get()) # de stopping powers
-    # Como a fonte e a mesma para todas as calibracoes, nao importa qual delas e selecionada
+    print(f"Selected calibrations: {selectedCalibs}")
+    # Assuming all selected calibrations share the same DecayList source, get channels used for stopping power range
+    selectedEnergies = []
+    first_reg_idx = selectedCalibs[0]
 
-    Aux_Channel.sort()
-    peaks = len(Aux_Channel) # Para referencia do tamanho
+    if first_reg_idx >= len(TabList):
+        print(f"Error: First regression index {first_reg_idx} out of range for TabList.")
+        return
 
-    for i in range(0, len(regressions_index)):
-        
-        Aux = File_Reader(TabList[regressions_index[i]][4], '0', 'String', 'No') # Aqui 
-        #vamos buscar as regressoes lineares para fazer uma media
+    for j in range(len(TabList[first_reg_idx][1].DecayList)):
+        decays = TabList[first_reg_idx][1].DecayList[j].get()
+        print(f"decays = {decays}")
+        if decays != -1:
+            selectedEnergies.append(decays)
 
-        if Aux[0] == 'keV':
-            placeholder1 = float(Aux[1]) * 1000
-            Aux[1] = str(placeholder1)
-            placeholder2 = float(Aux[3]) * 1000
-            Aux[3] = str(placeholder2)
+    selectedEnergies.sort()
+    nrPeaks = len(selectedEnergies)
 
-        slope = float(Aux[1]) + slope # Acumular o declive
-        intersect = float(Aux[3]) + intersect # Acumular a ordenada na origem
+    # Sum slopes and intercepts from each selected regression file to compute average later
+    for reg_idx in selectedCalibs:
+        if reg_idx >= len(TabList):
+            print(f"Warning: Regression index {reg_idx} out of range for TabList, skipping.")
+            continue
+        reg_file = TabList[reg_idx][4]
+        reg_data = File_Reader(reg_file, '0', 'String', 'No')
 
-    points = File_Reader(TabList[num][3], ',', 'No', 'No') # Analise dos picos de materiais em estudo
-    points.sort() # Ordenar os picos por ordem crescente
-    slope = slope / len(regressions_index)  # Buscar a media do declive
-    intersect = intersect / len(regressions_index) # Buscar a ordenada na origem
+        if reg_data[0] == 'keV':
+            # Convert keV to eV for slope and intercept if needed
+            reg_data[1] = str(float(reg_data[1]) * 1000)
+            reg_data[3] = str(float(reg_data[3]) * 1000)
 
-    i = 0
-    j = 0
-    Aux.clear()     
-    thickness = 0
+        slope_sum += float(reg_data[1])
+        intercept_sum += float(reg_data[3])
 
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = 'Thickness (' + units_list[index] + ')').grid(row = 0, column = 0)
-    tk.Label(TabList[num][1].ThicknessFrame, text = 'Channel').grid(row = 0, column = 1)
+    if len(selectedCalibs) == 0:
+        print("No regressions to average.")
+        return
 
-    for j in range(0, peaks):
+    slope_avg = slope_sum / len(selectedCalibs)
+    intercept_avg = intercept_sum / len(selectedCalibs)
 
-        Temp.append((slope * points[j][0]) + intersect )  # Calibracao dos picos do material
-        uncertain = 0 # Ira devolver a incerteza da media da espessura
-        summed_values = 0 # Faz o somatorio dos valores do stopping power
-        i = 1
+    # Read the peaks data (material points), sort ascending by channel or energy
+    points = File_Reader(TabList[num][3], ',', 'No', 'No')
+    points.sort()
 
-        for i in range(1, len(material_data)): # O ciclo comeca em 1 porque a linha 0 tem a densidade e 
-                                                # o numero atomico
-            if material_data[i][0] >= Temp[j] and material_data[i][0] <= Aux_Channel[j]:
+    # Prepare to calculate thicknesses for each peak
+    thickness_list = []
 
-                stopping_power = ( 1 / material_data[i][1]) # Stopping power a dividir pelo step
-                summed_values = summed_values + stopping_power # O somatorio que 
-                #resulta na aproximacao da espessura
-                
-        if index == 0 :
-            summed_values = summed_values / material_data[0][1]
-            summed_values = summed_values * 10000
+    # Setup labels for GUI
+    tk.Label(TabList[num][1].ThicknessFrame, text=f'Thickness ({units_list[index]})').grid(row=0, column=0)
+    tk.Label(TabList[num][1].ThicknessFrame, text='Channel').grid(row=0, column=1)
 
-        if index == 1:
-            summed_values = summed_values / material_data[0][1]
-            summed_values = summed_values * 10
+    for j in range(nrPeaks):
+        # Calibrate each point with average regression slope and intercept
+        calibrated_energy = (slope_avg * points[j][0]) + intercept_avg
 
-        if index == 2:
-            summed_values = summed_values *  0.001
+        summed_stopping_power = 0.0
 
-        if index == 3:
-            summed_values = summed_values * 1000 * ((6.02214076**(-23)) / material_data[0][0])
+        # Sum inverse stopping power over energy interval [calibrated_energy, selectedEnergies[j]]
+        for i in range(1, len(material_data)):
+            energy = material_data[i][0]
+            stopping = material_data[i][1]
 
-        Aux.append(summed_values) # Lista que guarda a espessura por perda de energia
-        thickness = thickness + (Aux[j]) # Espessua media
+            if calibrated_energy <= energy <= selectedEnergies[j]:
+                if stopping != 0:
+                    summed_stopping_power += (1 / stopping)
+                else:
+                    print(f"Warning: Stopping power zero at energy {energy}")
 
-        tk.Label(TabList[num][1].ThicknessFrame, text = '%.2f' % (Aux[j]) ).grid(
-                row = j + 1, column = 0)
-        tk.Label(TabList[num][1].ThicknessFrame, text = str(points[j][0])).grid(
-                row = j + 1, column = 1)
+        # Unit conversions according to selected unit
+        if index == 0:
+            summed_stopping_power = summed_stopping_power / material_data[0][1] * 10000
+        elif index == 1:
+            summed_stopping_power = summed_stopping_power / material_data[0][1] * 10
+        elif index == 2:
+            summed_stopping_power *= 0.001
+        elif index == 3:
+            # Avogadro's number: 6.02214076e23; material_data[0][0] assumed atomic mass
+            summed_stopping_power *= 1000 * (6.02214076e-23 / material_data[0][0])
 
-        if j == peaks - 1: # No ultimo run do ciclo for
-            i = 0
-            thickness = thickness / len(Aux) # A fazer a media da espessura
- 
-            my_file = open(TabList[num][4], 'w')
-            for i in range(0, len(Aux)): # Por fim faz se a incerteza da espessura media
-                uncertain = (Aux[i] - thickness)**2 + uncertain
-                my_file.write('%.3f' %(Aux[i]))
-                my_file.write('\n')
+        thickness_list.append(summed_stopping_power)
 
-            uncertain = uncertain / (peaks - 1)
-            uncertain = math.sqrt(uncertain) # Ultimo passo que resulta na espessura certa
+        # Display thickness and channel values in GUI
+        tk.Label(TabList[num][1].ThicknessFrame, text=f'{summed_stopping_power:.2f}').grid(row=j+1, column=0)
+        tk.Label(TabList[num][1].ThicknessFrame, text=str(points[j][0])).grid(row=j+1, column=1)
 
-            sig_fig = Precision(('%.2g' % (uncertain)))
+    # Calculate average thickness and uncertainty
+    avg_thickness = sum(thickness_list) / len(thickness_list)
 
-            my_file.write(str(thickness) + '\n')
-            my_file.write(str(uncertain) + '\n')
-            my_file.write(str(sig_fig))
-            my_file.close()
+    uncertainty_sum = sum((x - avg_thickness)**2 for x in thickness_list) / (len(thickness_list) - 1)
+    uncertainty = math.sqrt(uncertainty_sum)
 
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = 'Average Thickness (' + units_list[index] + ')').grid(row = j + 2, column = 0)
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = 'Uncertainty (' + units_list[index] + ')').grid(row = j + 2, column = 1)
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = '%.*f' %(sig_fig, thickness)).grid(row = j + 3, column = 0)
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = '%.*f' %(sig_fig, uncertain)).grid(row = j + 3, column = 1)
-    tk.Button(TabList[num][1].ThicknessFrame, 
-              command = lambda: ClearWidget('Thickness', 1),
-              text = 'Reset Results').grid(row = j + 4, columnspan = 2)
+    # Determine significant figures for display
+    sig_fig = Precision(f'{uncertainty:.2g}')
+
+    # Save results to file
+    with open(TabList[num][4], 'w') as my_file:
+        for val in thickness_list:
+            my_file.write(f'{val:.3f}\n')
+        my_file.write(f'{avg_thickness}\n')
+        my_file.write(f'{uncertainty}\n')
+        my_file.write(str(sig_fig))
+
+    # Display average thickness and uncertainty in GUI
+    tk.Label(TabList[num][1].ThicknessFrame, text=f'Average Thickness ({units_list[index]})').grid(row=nrPeaks+2, column=0)
+    tk.Label(TabList[num][1].ThicknessFrame, text=f'Uncertainty ({units_list[index]})').grid(row=nrPeaks+2, column=1)
+    tk.Label(TabList[num][1].ThicknessFrame, text=f'{avg_thickness:.{sig_fig}f}').grid(row=nrPeaks+3, column=0)
+    tk.Label(TabList[num][1].ThicknessFrame, text=f'{uncertainty:.{sig_fig}f}').grid(row=nrPeaks+3, column=1)
+
+    tk.Button(TabList[num][1].ThicknessFrame, command=lambda: ClearWidget('Thickness', 1),
+              text='Reset Results').grid(row=nrPeaks+4, columnspan=2)
 
 #########################################################################################
 # Calculo da espessura no método ROI Select

@@ -48,155 +48,132 @@ from Include.show_deletion_popup import*
 ###############################################
 ctypes.windll.shcore.SetProcessDpiAwareness(1) 
 
-###########################################################
-# Returns the index of the Tab the user is on
-###########################################################
+###############################################
+# Returns the index of the Tab the user is on #
+###############################################
 def Current_Tab():
+    """
+    Returns the ID of the tab where the user is on,
+    by getting the index of the selected tab in the notebook.
+    """
+    ## Get index of the current tab in the notebook
+    tabID = Notebook.notebook.index(Notebook.notebook.select()) - 1
 
-    final_num = Notebook.notebook.index(Notebook.notebook.select()) - 1  # Devolve o id da tab onde o utilizador se encontra                # Vai buscar o numero na string do id
-              # Altera-se o valor para corresponder aos indices da lista
-
-    if final_num >= 0:
-        return final_num
-    
-    elif final_num < 0: # Para o caso do utilizador se encontrar na tab dos resultados finais
+    ## Check if the user is in the "final results" tab (has negative index)
+    if tabID < 0:
         pass
+    else:
+        return tabID
   
 #########################################################################################
-# Apaga as widgets dentro de frames e tira a geometria de frames, para fazer renovacao
-# de dados. Podera conter, eventualmente, mais frames do que contem agora
+# Clears and resets specific UI frames and associated data files depending on the 
+# type of frame specified.
 #########################################################################################
 def ClearWidget(Frame, parameter):
+    """
+     Function: ClearWidget
+     --------------------------------------------
+     Purpose:
+       Clears and resets specific UI frames and 
+       associated data files depending on the 
+       type of frame specified.
+    
+     Parameters:
+       Frame     (str) : The name of the frame to clear.
+                         Options include: 'Graphic', 'Algorithm',
+                         'Results', 'Source', 'Popup', 'Image',
+                         'Linear', 'Thickness', 'Final', 'Everything'
+       parameter (int) : Used to control conditional deletion of 
+                         files or reset of variables.
+                         (1 = full reset with file deletion)
+    
+     Dependencies:
+       - Uses the global TabList and TabTracker structures.
+       - Assumes each frame is a Tkinter Frame with children.
+       - Depends on external objects like `Notebook`, `wng`.
+    """
     num = Current_Tab()
+    tab = TabList[num][1]
 
     if Frame == 'Graphic':
-        ## Delete old plot and build new one
-        for widget in TabList[num][1].GraphicFrame.winfo_children():
-            widget.destroy()
-        TabList[num][1].GraphicFrame.grid_remove()
-        widget = 0
-        for widget in TabList[num][1].Extra_Frame.winfo_children():
-            widget.destroy()
-        TabList[num][1].Extra_Frame.grid_remove()
-    
+        # Clear all widgets from graphic-related frames
+        clear_frame(tab.GraphicFrame)
+        clear_frame(tab.Extra_Frame)
+
     elif Frame == 'Algorithm':
-        for widget in TabList[num][1].AlgFrame.winfo_children(): 
-            widget.destroy() #Destroi a opcao de widgets anteriores dos algoritmos
-
+        # Clear previous algorithm UI and reset selection
+        clear_frame(tab.AlgFrame)
         if parameter == 1:
-            TabList[num][1].Algorithm_Method.set('Select Algorithm to Run')
-            TabList[num][1].Algorithm.set(0)
-    
+            tab.Algorithm_Method.set('Select Algorithm to Run')
+            tab.Algorithm.set(0)
+
     elif Frame == 'Results':
-        for widget in TabList[num][1].ResultFrame.winfo_children():
-            widget.destroy() #Destroi os resultados anteriores dos algoritmos
-        TabList[num][1].ResultFrame.grid_remove()
-        
-        if parameter == 1: #Porque o search do algoritmo de selecao manual reconstroi os widgets
-                           # da frame sempre que se encontra um novo ponto, e necessario
-                           # configurar o caso onde ha reset dos dados e o caso onde nao ha reset
-            if os.path.isfile(TabList[num][3]) == True:
-                os.remove(TabList[num][3])
-
-    elif Frame == 'Source': # Este for remove as opcoes de energia de decaimento das fontes de alphas
-        for widget in TabList[num][1].SourceOptionsFrame.winfo_children():
-            widget.destroy() 
-        TabList[num][1].SourceOptionsFrame.grid_remove()
+        # Clear result display and delete results file if required
+        clear_frame(tab.ResultFrame)
         if parameter == 1:
-            TabList[num][1].Source.set('Radiation Sources')
-        
+            remove_file(TabList[num][3])  # Output file
 
-    elif Frame == 'Popup': # Remove os popups que existem no programa
+    elif Frame == 'Source':
+        # Clear source options UI and reset selection
+        clear_frame(tab.SourceOptionsFrame)
+        if parameter == 1:
+            tab.Source.set('Radiation Sources')
+
+    elif Frame == 'Popup':
+        # Destroy warning popup
         for widget in wng.warning.winfo_children():
             widget.destroy()
         wng.warning.destroy()
 
-    elif Frame == 'Image': # Remove a imagem sempre que se clicar a comecar outra
+    elif Frame == 'Image':
+        # Destroy decay image popup
         for widget in wng.decay.winfo_children():
             widget.destroy()
         wng.decay.destroy()
 
+    elif Frame == 'Linear':
+        # Clear linear regression result display and optionally delete file
+        clear_frame(tab.LinearRegressionFrame)
+        clear_frame(Notebook.Calib_Result2)
+        if parameter == 1:
+            remove_file(TabList[num][4])  # Calibration file
 
-    elif Frame == 'Linear': # Remove os resultados da regressao linear
-        for widget in TabList[num][1].LinearRegressionFrame.winfo_children():
-            widget.destroy()
-        TabList[num][1].LinearRegressionFrame.grid_remove()
-        widget = 0
-        for widget in Notebook.Calib_Result2.winfo_children():
-            widget.destroy()
+    elif Frame == 'Thickness':
+        # Clear thickness calculation results and optionally delete file
+        clear_frame(tab.ThicknessFrame)
+        clear_frame(Notebook.Mat_Result2)
+        if parameter == 1:
+            tab.Mat.set('Select Material')
+            remove_file(TabList[num][4])  # Thickness file
 
-        if parameter == 1: # Nem todas as opcoes necessitam de destruir os resultados, 
-                            # portanto existe o parametro, para fazer a escolha de apagar o documento
-            os.remove(TabList[num][4])
+    elif Frame == 'Final':
+        # Clear final results display
+        clear_frame(Notebook.Mat_Result2)
+        clear_frame(Notebook.Calib_Result2)
 
-    elif Frame == 'Thickness': # Remove os resultados do calculo da espessura
-        for widget in TabList[num][1].ThicknessFrame.winfo_children():
-            widget.destroy()
-        TabList[num][1].ThicknessFrame.grid_remove()
-        widget = 0
-        for widget in Notebook.Mat_Result2.winfo_children():
-            widget.destroy()
-        
+    elif Frame == 'Everything':
+        # Full reset of all UI elements and files in the current tab
+        clear_frame(tab.GraphicFrame)
+        clear_frame(tab.Extra_Frame)
+        clear_frame(tab.AlgFrame)
+        tab.Algorithm_Method.set('Select Algorithm to Run')
+        tab.Algorithm.set(0)
+        clear_frame(tab.ResultFrame)
 
-        if parameter == 1: # Apaga os resultados escritos calculados da espessura
-            TabList[num][1].Mat.set('Select Material')
-            os.remove(TabList[num][4])
-
-    elif Frame == 'Final': # Para o caso de se apagarem tabs, o final results e atualizado
-        for widget in Notebook.Mat_Result2.winfo_children():
-            widget.destroy()
-        widget = 0
-        for widget in Notebook.Calib_Result2.winfo_children():
-            widget.destroy()
-
-    elif Frame == 'Everything': # Esta e a opcao que da reset a tudo numa tab
-        for widget in TabList[num][1].GraphicFrame.winfo_children():
-            widget.destroy()        
-        widget = 0
-        TabList[num][1].GraphicFrame.grid_remove()
-
-        for widget in TabList[num][1].Extra_Frame.winfo_children():
-            widget.destroy()
-        TabList[num][1].Extra_Frame.grid_remove()
-        widget = 0
-        
-        for widget in TabList[num][1].AlgFrame.winfo_children(): 
-            widget.destroy() 
-        widget = 0
-        TabList[num][1].AlgFrame.grid_remove()
-        TabList[num][1].Algorithm_Method.set('Select Algorithm to Run')
-        TabList[num][1].Algorithm.set(0)
-
-        for widget in TabList[num][1].ResultFrame.winfo_children():
-            widget.destroy()       
-        widget = 0
-        TabList[num][1].ResultFrame.grid_remove()
-
+        # Conditional clearing depending on tab type
         if TabTracker[num] < 0:
-
-            for widget in TabList[num][1].SourceOptionsFrame.winfo_children():
-                widget.destroy()
-            widget = 0
-            TabList[num][1].SourceOptionsFrame.grid_remove()
-            TabList[num][1].Source.set('Radiation Sources')
-
-            for widget in TabList[num][1].LinearRegressionFrame.winfo_children():
-                widget.destroy()
-            widget = 0
-            TabList[num][1].LinearRegressionFrame.grid_remove()
+            clear_frame(tab.SourceOptionsFrame)
+            tab.Source.set('Radiation Sources')
+            clear_frame(tab.LinearRegressionFrame)
 
         elif TabTracker[num] > 0:
+            clear_frame(tab.ThicknessFrame)
+            tab.Mat.set('Select Material')
 
-            for widget in TabList[num][1].ThicknessFrame.winfo_children():
-                widget.destroy()
-            TabList[num][1].ThicknessFrame.grid_remove()
-            TabList[num][1].Mat.set('Select Material')
-
+        # Delete associated output files if requested
         if parameter == 1:
-            if os.path.isfile(TabList[num][3]) == True:
-                os.remove(TabList[num][3])
-            if os.path.isfile(TabList[num][4]) == True:
-                os.remove(TabList[num][4])
+            remove_file(TabList[num][3])
+            remove_file(TabList[num][4])
 
 ############################################################################################
 # Funcao que le os ficheiros e devolve listas. Estas podem ser 2d ou 1d, podem ter separadores

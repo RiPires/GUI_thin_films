@@ -1,3 +1,20 @@
+####################################################################################################
+##                                                                                                ##       
+## ARC-TF stands for Alpha particles' energy loss and Rutherford backscattering                   ##
+## spectrometry methods for Characterization of Thin Films.                                       ##
+##                                                                                                ##
+## ARC-TF is a GUI (Guided User Interface) intended to expedite the process of                    ##
+## characterizing thin films, via an interface with ease of use, and backend                      ##
+## algorithms that accelerate the data analysis.                                                  ##
+##                                                                                                ##
+## This project is the result of a LIP Summer Internship, within the NUC-RIA group.               ##
+## A publication resulting from the internship, resuming the work taken to develop                ##
+## the first version of ARC-TF, can be searched for by the reference LIP-STUDENTS-23-15.          ##
+## Directly available at https://www.lip.pt/files/training/papers/2023/pdf/2023-PAPER-179-15.pdf  ##
+##                                                                                                ## 
+####################################################################################################
+
+## ------------------------------- Import necessary librarires ---------------------------------- ##
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
@@ -12,17 +29,25 @@ import os
 import math
 from shutil import copy2
 import numpy as np
+import ctypes
 
 from Include.Analyze import*
 from Include.Calibration import*
 from Include.FitData import*
 from Include.Eloss import*
 from Include.Thick import*
+from Include.clear_frame import*
+from Include.remove_file import*
+from Include.update_file_list import*
+from Include.show_deletion_popup import*
+## ---------------------------------------------------------------------------------------------- ##
 
+###############################################
+# Handles display scaling                     #
+# works on Windows 10/11 and Linux/Kubuntu    #
+###############################################
+ctypes.windll.shcore.SetProcessDpiAwareness(1) 
 
-########## Ajusta-se ao ecra e foca os widgets - Windows ######
-import ctypes
-ctypes.windll.shcore.SetProcessDpiAwareness(1)
 ###########################################################
 # Returns the index of the Tab the user is on
 ###########################################################

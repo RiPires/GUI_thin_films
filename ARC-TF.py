@@ -280,136 +280,120 @@ def Precision(value):
     except Exception:
         return 0
 
-############################################################################################
-# Le os resultados finais e exibe os na primeira tab
-############################################################################################
+####################################################################
+# Reads and displays the final results on the first tab of the GUI #
+####################################################################
 def Final_Results(tracker):
-
+    """
+     Function: Final_Results
+     ------------------------
+     Reads and displays the final results on the first tab of the GUI.
+    
+     The behavior depends on:
+       - The current method (e.g., 'ROI Select') chosen for the analysis.
+       - The tracker value, which indicates whether calibration (-), material thickness (+),
+         or idle (0) operations are being requested.
+    
+     If calibration: calls Linearize or LinearizeWithErrors depending on the method.
+     If material thickness: calls Final_Calculation or ROI_Thick_Calculation.
+    
+     For each tab (loop over TabTracker):
+       - Reads result files and displays values using tkinter labels.
+       - If calibration: shows slope/intersect with uncertainties.
+       - If material: shows thickness per peak and average with uncertainty.
+    """
     num = Current_Tab()
     method = TabList[num][1].Algorithm_Method.get()
 
+    # Decide which analysis to apply
     if tracker < 0 and method == 'ROI Select':
         LinearizeWithErrors()
-    
     elif tracker < 0 and method != 'ROI Select':
         Linearize()
-
     elif tracker > 0 and method != 'ROI Select':
         Final_Calculation()
-
     elif tracker > 0 and method == 'ROI Select':
         ROI_Thick_Calculation()
-
     elif tracker == 0:
-        pass        
-        
-    for i in range(0, len(TabTracker)):
-        if (tracker < 0 or tracker == 0) and TabTracker[i] < 0:
-            if os.path.isfile(TabList[i][4]) == True:
+        pass
 
-                if TabList[i][1].energy.get() == 1000:
-                    unit_energy = 'MeV'
+    # Loop through all tabs to update results
+    for i in range(len(TabTracker)):
+        # CALIBRATION RESULTS DISPLAY
+        if (tracker <= 0) and TabTracker[i] < 0:
+            if os.path.isfile(TabList[i][4]):
 
-                elif TabList[i][1].energy.get() == 1:
-                    unit_energy = 'keV'
+                # Determine energy units
+                energy_val = TabList[i][1].energy.get()
+                unit_energy = 'MeV' if energy_val == 1000 else 'keV'
 
+                # Read calibration results
                 Results = File_Reader(TabList[i][4], '0', 'String', 'No')
-                tk.Label(Notebook.Calib_Result2, text = 'Calibration Trial ' + 
-                        str(-TabTracker[i]) + ' - ' +
-                        TabList[i][1].Source.get()).grid(row = 4 * i + i, columnspan = 3)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = '(' + unit_energy + ')').grid(row = 4 * i + i + 1, column = 0)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = 'Values').grid(row = 4 * i + i + 1, column = 1)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = 'Uncertainty').grid(row = 4 * i + i + 1, column = 2)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = 'Slope').grid(row = 4 * i + i + 2, column = 0)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = 'Intersect').grid(row = 4 * i + i + 3, column = 0)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = '').grid(row = 4 * i + i + 4, column = 0)
 
-                tk.Label(Notebook.Calib_Result2, 
-                        text = '%.*f' %(int(Results[5]), float(Results[1]))).grid(
-                            row = 4 * i + i + 2, column = 1)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = '%.*f' %(int(Results[5]), float(Results[2]))).grid(
-                            row = 4 * i + i + 2, column = 2)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = '%.*f' %(int(Results[6]), float(Results[3]))).grid(
-                            row = 4 * i + i + 3, column = 1)
-                tk.Label(Notebook.Calib_Result2, 
-                        text = '%.*f' %(int(Results[6]), float(Results[4]))).grid(
-                            row = 4 * i + i + 3, column = 2)
-            else:                    
-                Notebook.calib_canvas.update_idletasks()    
-                Notebook.calib_canvas.config(scrollregion = Notebook.Calib_Result2.bbox())
-                Notebook.Calib_Result2.bind('<Configure>', 
-                              lambda e: Notebook.calib_canvas.configure(
-                                  scrollregion = Notebook.calib_canvas.bbox('all'), width = e.width)) 
+                # Display calibration trial info
+                tk.Label(Notebook.Calib_Result2, text=f'Calibration Trial {-TabTracker[i]} - {TabList[i][1].Source.get()}').grid(row=4*i+i, columnspan=3)
+                tk.Label(Notebook.Calib_Result2, text=f'({unit_energy})').grid(row=4*i+i+1, column=0)
+                tk.Label(Notebook.Calib_Result2, text='Values').grid(row=4*i+i+1, column=1)
+                tk.Label(Notebook.Calib_Result2, text='Uncertainty').grid(row=4*i+i+1, column=2)
+                tk.Label(Notebook.Calib_Result2, text='Slope').grid(row=4*i+i+2, column=0)
+                tk.Label(Notebook.Calib_Result2, text='Intersect').grid(row=4*i+i+3, column=0)
+                tk.Label(Notebook.Calib_Result2, text='').grid(row=4*i+i+4, column=0)
 
-        if (tracker > 0 or tracker == 0) and TabTracker[i] > 0:
-            if os.path.isfile(TabList[i][4]) == True and os.path.isfile(TabList[i][3]) == True:
+                # Display slope and intercept with uncertainty
+                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[5]), float(Results[1]))).grid(row=4*i+i+2, column=1)
+                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[5]), float(Results[2]))).grid(row=4*i+i+2, column=2)
+                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[6]), float(Results[3]))).grid(row=4*i+i+3, column=1)
+                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[6]), float(Results[4]))).grid(row=4*i+i+3, column=2)
 
+            else:
+                # Update canvas if no result file
+                Notebook.calib_canvas.update_idletasks()
+                Notebook.calib_canvas.config(scrollregion=Notebook.Calib_Result2.bbox())
+                Notebook.Calib_Result2.bind('<Configure>',
+                    lambda e: Notebook.calib_canvas.configure(
+                        scrollregion=Notebook.calib_canvas.bbox('all'), width=e.width))
+
+        # MATERIAL RESULTS DISPLAY
+        if (tracker >= 0) and TabTracker[i] > 0:
+            if os.path.isfile(TabList[i][4]) and os.path.isfile(TabList[i][3]):
+
+                # Read result and peak files
                 Results = File_Reader(TabList[i][4], '0', 'Yes', 'No')
                 Peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')
                 Peaks.sort()
 
-                units_list = ['nm', '\u03bcm',
-                  '\u03bcg' + ' cm' + '{}'.format('\u207B' + '\u00b2'),
-                  '10' + '{}'.format('\u00b9' + '\u2075') + ' Atoms' 
-                   + ' cm' + '{}'.format('\u207B' + '\u00b3')]
-
-                units_values = [10.0**9, 10.0**6, 0.0, -1.0]
+                # Units and conversion setup
+                units_list = ['nm', 'μm', 'μg cm⁻²', '10¹⁵ Atoms cm⁻³']
+                units_values = [1e9, 1e6, 0.0, -1.0]
                 index = units_values.index(TabList[i][1].units.get())
 
                 size = len(Peaks)
 
-                for j in range(0, size):
+                for j in range(size):
                     if j == 0:
+                        # Trial header and column labels
+                        tk.Label(Notebook.Mat_Result2, text=f'Material Trial {TabTracker[i]} - {TabList[i][1].Mat.get()}').grid(row=(4+size)*i+i+j, columnspan=2)
+                        tk.Label(Notebook.Mat_Result2, text='Peak Centroid').grid(row=(4+size)*i+i+j+1, column=0)
+                        tk.Label(Notebook.Mat_Result2, text='Thickness').grid(row=(4+size)*i+i+j+1, column=1)
 
-                        tk.Label(Notebook.Mat_Result2, text = 'Material Trial ' + 
-                            str(TabTracker[i]) + ' - ' +
-                            TabList[i][1].Mat.get()).grid(row = (4 + size) * i + i + j , columnspan = 2)
-                        tk.Label(Notebook.Mat_Result2, 
-                                 text = 'Peak Centroid').grid(row = (4 + size) * i + i + j + 1, column = 0)
-                        tk.Label(Notebook.Mat_Result2, 
-                                 text = 'Thickness').grid(row = (4 + size) * i + i + j + 1, column = 1)
-                    
-                    tk.Label(Notebook.Mat_Result2, 
-                             text = str("{:.1f}".format(Peaks[j][0]))).grid(row = (4 + size) * i + i + j + 2, 
-                                                          column = 0)
-                    tk.Label(Notebook.Mat_Result2, 
-                             text = '%.*f' % (int(Results[-1]), Results[j]) + 
-                             ' ' + units_list[index] ).grid(row = (4 + size) * i + i + j + 2, 
-                                                                  column = 1)
-                    
-                tk.Label(Notebook.Mat_Result2, 
-                                 text = '\nAverage').grid(row = (4 + size) * i + i + j + 3, column = 0)
-                tk.Label(Notebook.Mat_Result2, 
-                                 text = 'Uncertainty').grid(row = (4 + size) * i + i + j + 4, column = 0)
-                tk.Label(Notebook.Mat_Result2, 
-                                 text = '\n' + '%.*f' % (int(Results[-1]), Results[j + 1]) 
-                                 + ' ' + units_list[index]).grid(
-                                     row = (4 + size) * i + i + j + 3, column = 1)
-                tk.Label(Notebook.Mat_Result2, 
-                                 text = '%.*f' % (int(Results[-1]), Results[j + 2]) 
-                                 + ' ' + units_list[index]).grid(
-                                     row = (4 + size) * i + i + j + 4, column = 1)
-                tk.Label(Notebook.Mat_Result2, 
-                                 text = '').grid(row = (4 + size) * i + i + j + 5, 
-                                                                  columnspan = 2)
-                
+                    # Peak energy and thickness
+                    tk.Label(Notebook.Mat_Result2, text=f'{Peaks[j][0]:.1f}').grid(row=(4+size)*i+i+j+2, column=0)
+                    tk.Label(Notebook.Mat_Result2, text='%.*f %s' % (int(Results[-1]), Results[j], units_list[index])).grid(row=(4+size)*i+i+j+2, column=1)
+
+                # Display average and uncertainty
+                tk.Label(Notebook.Mat_Result2, text='\nAverage').grid(row=(4+size)*i+i+j+3, column=0)
+                tk.Label(Notebook.Mat_Result2, text='Uncertainty').grid(row=(4+size)*i+i+j+4, column=0)
+                tk.Label(Notebook.Mat_Result2, text='\n%.*f %s' % (int(Results[-1]), Results[j+1], units_list[index])).grid(row=(4+size)*i+i+j+3, column=1)
+                tk.Label(Notebook.Mat_Result2, text='%.*f %s' % (int(Results[-1]), Results[j+2], units_list[index])).grid(row=(4+size)*i+i+j+4, column=1)
+                tk.Label(Notebook.Mat_Result2, text='').grid(row=(4+size)*i+i+j+5, columnspan=2)
+
+                # Update scrollable canvas
                 Notebook.mat_canvas.update_idletasks()
-                Notebook.mat_canvas.config(scrollregion = Notebook.Mat_Result2.bbox())
-                Notebook.Mat_Result2.bind('<Configure>', 
-                              lambda e: Notebook.mat_canvas.configure(
-                                  scrollregion = Notebook.mat_canvas.bbox('all'), width = e.width)) 
-            else:
-                print('WDK')
-        else:
-            print('WTF')
+                Notebook.mat_canvas.config(scrollregion=Notebook.Mat_Result2.bbox())
+                Notebook.Mat_Result2.bind('<Configure>',
+                    lambda e: Notebook.mat_canvas.configure(
+                        scrollregion=Notebook.mat_canvas.bbox('all'), width=e.width)) 
+
 ###########################################################################################
 # Permite a escolha de regressoes lineares por parte do utilizador
 ###########################################################################################

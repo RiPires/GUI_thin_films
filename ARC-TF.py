@@ -176,66 +176,79 @@ def ClearWidget(Frame, parameter):
             remove_file(TabList[num][4])
 
 ############################################################################################
-# Funcao que le os ficheiros e devolve listas. Estas podem ser 2d ou 1d, podem ter separadores
-# diferentes (entre as colunas) e pode devolver as listas como strings, floats ou ints
+# Reads data from a text file and returns it as a 1D or 2D list, depending on the format.  #
+# Handles different column separators, number formats (int/float/string), and optional     #
+# real-time data extraction for GUI updates.                                               #
 ############################################################################################
 def File_Reader(Document, Separator, Decimal, Upload):
-
+    """
+     Function: File_Reader
+     ------------------------------------------------------------------------------------------
+     Purpose:
+       Reads data from a text file and returns it as a 1D or 2D list, depending on the format.
+       Handles different column separators, number formats (int/float/string), and optional
+       real-time data extraction for GUI updates.
+    
+     Parameters:
+       Document  (str)  : Path to the text file to be read.
+       Separator (str)  : Character used to separate columns (e.g. '\t', ',', ' ').
+                          Use '0' to indicate a 1D list (no column separation).
+       Decimal   (str)  : Controls data type conversion:
+                          'Yes'  -> Convert values to float
+                          'No'   -> Convert values to int
+                          'String' -> Return raw strings (1D only)
+       Upload    (str)  : If set to 'Yes', updates the GUI with a real-time value from the file.
+    
+     Returns:
+       List of values:
+         - 2D list if Separator != '0'
+         - 1D list if Separator == '0'
+         - Type of values (string/float/int) based on Decimal input
+    
+     Notes:
+       - Assumes that if Upload is 'Yes', line 9 (index 8) contains real-time info (in seconds).
+       - Assumes valid format and no missing separators for 2D inputs.
+    """
     num = Current_Tab()
 
-    with open(Document, 'r') as OpenFile: # Abre (e fecha) o documento
-        lines = OpenFile.read() # Le os dados como string   
-    lines = lines.splitlines() #Separa o array em linhas
+    # Open file and read its entire content
+    with open(Document, 'r') as OpenFile:
+        lines = OpenFile.read()
+    
+    # Split the content by lines
+    lines = lines.splitlines()
 
+    # If needed, update GUI with the "measurement live-time" value from line 9
     if Upload == 'Yes':
-        TabList[num][1].Real_Time.set(lines[8] + ' s')        
+        TabList[num][1].Real_Time.set(lines[8] + ' s')
 
-    if Separator != '0': # O separator verifica se temos uma matriz ou um vetor
-                        # caso seja '0', o documento a ser lido e um vetor, e nao e necessario 
-                        # separar por colunas
+    # If it's a 2D file (e.g. table with multiple columns)
+    if Separator != '0':
+        Results = [[0] for _ in range(len(lines))]  # Create a placeholder matrix
+        for i, line in enumerate(lines):
+            Results[i] = line.split(Separator)  # Split each line by separator
 
-        Results = [[0 for i in range(1)]for j in range(len(lines))] # Inicio de uma matriz com entradas 
-                                                                    # independentes
-        i = 0
-
-        for line in lines:
-            Results[i] = (line.split(Separator)) # Aqui separam se as colunas
-            i += 1
-
-        i = 0
-        j = 0
-
-        for j in range(0, len(lines)): # Neste ciclo, sao transformados os resultados em int ou float,
-                                        # conforme o input
-            for i in range(0, len(Results[0])):
-
+        # Convert each value to float or int
+        for j in range(len(Results)):
+            for i in range(len(Results[0])):  # Assumes all lines have equal number of columns
                 if Results[j][i] == '':
-                    pass
-
+                    pass  # Skip empty entries
                 elif Decimal == 'Yes':
                     Results[j][i] = float(Results[j][i])
-
                 elif Decimal == 'No':
                     Results[j][i] = int(Results[j][i])
-
         return Results
-    
+
     else:
-        i = 0
-        if Decimal == 'String': # Caso queiramos apenas uma string, a funcao devolve logo o vetor lines
-
-            return lines
-        
+        # Handle 1D vector (no separator between values)
+        if Decimal == 'String':
+            return lines  # Return raw strings
         else:
-
-            for i in range(0, len(lines)): # Aqui transforma se o vetor string em int ou float e devolve
-
+            for i in range(len(lines)):
                 if Decimal == 'Yes':
-                        lines[i] = float(lines[i])
-
+                    lines[i] = float(lines[i])
                 elif Decimal == 'No':
                     lines[i] = int(lines[i])
-
             return lines
 
 ##############################################################################################

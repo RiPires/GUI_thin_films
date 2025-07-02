@@ -288,15 +288,15 @@ def Final_Results(tracker):
      Function: Final_Results
      ------------------------
      Reads and displays the final results on the first tab of the GUI.
-    
+
      The behavior depends on:
        - The current method (e.g., 'ROI Select') chosen for the analysis.
        - The tracker value, which indicates whether calibration (-), material thickness (+),
          or idle (0) operations are being requested.
-    
+
      If calibration: calls Linearize or LinearizeWithErrors depending on the method.
-     If material thickness: calls Final_Calculation or ROI_Thick_Calculation.
-    
+     If material thickness: calls Calculate_Thickness (handles both standard and ROI Select).
+
      For each tab (loop over TabTracker):
        - Reads result files and displays values using tkinter labels.
        - If calibration: shows slope/intersect with uncertainties.
@@ -310,10 +310,8 @@ def Final_Results(tracker):
         LinearizeWithErrors()
     elif tracker < 0 and method != 'ROI Select':
         Linearize()
-    elif tracker > 0 and method != 'ROI Select':
-        Final_Calculation()
-    elif tracker > 0 and method == 'ROI Select':
-        ROI_Thick_Calculation()
+    elif tracker > 0:
+        Calculate_Thickness()
     elif tracker == 0:
         pass
 
@@ -322,7 +320,6 @@ def Final_Results(tracker):
         # CALIBRATION RESULTS DISPLAY
         if (tracker <= 0) and TabTracker[i] < 0:
             if os.path.isfile(TabList[i][4]):
-
                 # Determine energy units
                 energy_val = TabList[i][1].energy.get()
                 unit_energy = 'MeV' if energy_val == 1000 else 'keV'
@@ -356,7 +353,6 @@ def Final_Results(tracker):
         # MATERIAL RESULTS DISPLAY
         if (tracker >= 0) and TabTracker[i] > 0:
             if os.path.isfile(TabList[i][4]) and os.path.isfile(TabList[i][3]):
-
                 # Read result and peak files
                 Results = File_Reader(TabList[i][4], '0', 'Yes', 'No')
                 Peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')
@@ -392,7 +388,8 @@ def Final_Results(tracker):
                 Notebook.mat_canvas.config(scrollregion=Notebook.Mat_Result2.bbox())
                 Notebook.Mat_Result2.bind('<Configure>',
                     lambda e: Notebook.mat_canvas.configure(
-                        scrollregion=Notebook.mat_canvas.bbox('all'), width=e.width)) 
+                        scrollregion=Notebook.mat_canvas.bbox('all'), width=e.width))
+    return
 
 ###############################################################################
 # Allows the user to choose which linear regression(s) to use for calibration #
@@ -478,330 +475,326 @@ def Calib_Choice():
 # Calculate the material thickness for each detected peak and the average thickness #
 # based on selected calibration regressions and stopping power data                 #
 #####################################################################################
-def Final_Calculation():
+def Calculate_Thickness():
     """
-    Workflow:
-    - Reads the calibration regressions selected by the user.
-    - Calculates average calibration parameters (slope and intercept).
-    - Reads material stopping power data from file.
-    - Converts peak channels to energy using calibration.
-    - Integrates inverse stopping power over energy intervals to estimate thickness.
-    - Converts units according to user selection.
-    - Calculates average thickness and uncertainty.
-    - Displays results in the GUI and writes to an output file.
+    Calculates the material thickness for each detected peak and the average thickness
+    for the current material trial tab, using the selected calibration regression(s)
+    and stopping power data.
 
-    Assumptions:
-    - TabList and TabTracker structures contain calibration and peak data.
-    - Material stopping power file has specific format with density and atomic mass on first line.
-    - User selections for material, units, and regressions are valid.
+    This function supports both the standard and 'ROI Select' analysis methods:
+      - For 'ROI Select', it uses a single selected calibration and calculates thickness
+        based on energy loss between calibration and film peaks.
+      - For the standard method, it allows averaging over multiple selected calibration
+        regressions, computes the average slope/intercept, and determines thickness for
+        each detected peak.
 
-    Side effects:
-    - Updates GUI widgets with thickness results.
-    - Writes thickness results and uncertainty to a file.
+    The results (thickness per peak, average, and uncertainty) are written to a results file
+    and displayed in the GUI.
+
+    Steps:
+        1. Clears previous thickness results from the GUI.
+        2. Determines the analysis method and retrieves relevant calibration(s).
+        3. Loads material stopping power data and peak information.
+        4. Calculates thickness for each peak and the average/uncertainty.
+        5. Updates the results file and displays results in the GUI.
+
+    Dependencies:
+        - Uses global TabList, TabTracker, and tkinter for GUI elements.
+        - Relies on helper functions: File_Reader, Eloss, Thickness, Precision, ClearWidget.
+
+    Returns:
+        None
     """
-
     num = Current_Tab()
+    method = TabList[num][1].Algorithm_Method.get()
     ClearWidget('Thickness', 0)
     TabList[num][1].ThicknessFrame.grid(row=5, columnspan=3, pady=5)
 
+    # Units and conversion setup
     units_list = ['nm', '\u03bcm',
-                  '\u03bcg cm\u207B\u00B2',  # µg cm⁻²
-                  '10\u00B9\u2075 Atoms cm\u207B\u00B3']  # 10¹⁵ Atoms cm⁻³
-
+                  '\u03bcg cm\u207B\u00B2',
+                  '10\u00B9\u2075 Atoms cm\u207B\u00B3']
     units_values = [1e9, 1e6, 0.0, -1.0]
-
-    # Get the index of the currently selected units from the units_values list
-    try:
-        index = units_values.index(TabList[num][1].units.get())
-    except ValueError:
-        print("Error: Selected unit not found in units_values list.")
-        return
-
-    # Determine the material file path based on user selection
-    material_filename = 'Files/Materials/' + TabList[num][1].Mat.get() + '.txt'
-    material_data = File_Reader(material_filename, '|', 'Yes', 'No')
-    # material_data expected to contain energy and stopping power info for chosen material
-
-    # Initialize accumulators for slope and intercept from selected regressions
-    slope_sum = 0.0
-    intercept_sum = 0.0
-    selectedCalibs = []
-    regression_value_map = getattr(TabList[num][1], 'regression_value_map', {})
-
-    # Build the list of indices from TabTracker corresponding to selected regressions
-    for i, reg_var in enumerate(TabList[num][1].Regression_List):
-        val = reg_var.get()
-        if val != -1 and val in regression_value_map:
-            # val is negative identifier, e.g. -1, -2, corresponding to calibration tabs in TabTracker
-            try:
-                idx = TabTracker.index(regression_value_map[val])  # Find index in TabTracker with positive value
-                selectedCalibs.append(idx)
-            except ValueError:
-                print(f"Warning: Regression selection value {regression_value_map[val]} not found in TabTracker")
-
-    if not selectedCalibs:
-        print("No valid regression selected. Aborting calculation.")
-        return
-
-    print(f"Selected calibrations: {selectedCalibs}")
-    # Assuming all selected calibrations share the same DecayList source, get channels used for stopping power range
-    selectedEnergies = []
-    first_reg_idx = selectedCalibs[0]
-
-    if first_reg_idx >= len(TabList):
-        print(f"Error: First regression index {first_reg_idx} out of range for TabList.")
-        return
-
-    for j in range(len(TabList[first_reg_idx][1].DecayList)):
-        decays = TabList[first_reg_idx][1].DecayList[j].get()
-        print(f"decays = {decays}")
-        if decays != -1:
-            selectedEnergies.append(decays)
-
-    selectedEnergies.sort()
-    nrPeaks = len(selectedEnergies)
-
-    # Sum slopes and intercepts from each selected regression file to compute average later
-    for reg_idx in selectedCalibs:
-        if reg_idx >= len(TabList):
-            print(f"Warning: Regression index {reg_idx} out of range for TabList, skipping.")
-            continue
-        reg_file = TabList[reg_idx][4]
-        reg_data = File_Reader(reg_file, '0', 'String', 'No')
-
-        if reg_data[0] == 'keV':
-            # Convert keV to eV for slope and intercept if needed
-            reg_data[1] = str(float(reg_data[1]) * 1000)
-            reg_data[3] = str(float(reg_data[3]) * 1000)
-
-        slope_sum += float(reg_data[1])
-        intercept_sum += float(reg_data[3])
-
-    if len(selectedCalibs) == 0:
-        print("No regressions to average.")
-        return
-
-    slope_avg = slope_sum / len(selectedCalibs)
-    intercept_avg = intercept_sum / len(selectedCalibs)
-
-    # Read the peaks data (material points), sort ascending by channel or energy
-    points = File_Reader(TabList[num][3], ',', 'No', 'No')
-    points.sort()
-
-    # Prepare to calculate thicknesses for each peak
-    thickness_list = []
-
-    # Setup labels for GUI
-    tk.Label(TabList[num][1].ThicknessFrame, text=f'Thickness ({units_list[index]})').grid(row=0, column=0)
-    tk.Label(TabList[num][1].ThicknessFrame, text='Channel').grid(row=0, column=1)
-
-    for j in range(nrPeaks):
-        # Calibrate each point with average regression slope and intercept
-        calibrated_energy = (slope_avg * points[j][0]) + intercept_avg
-
-        summed_stopping_power = 0.0
-
-        # Sum inverse stopping power over energy interval [calibrated_energy, selectedEnergies[j]]
-        for i in range(1, len(material_data)):
-            energy = material_data[i][0]
-            stopping = material_data[i][1]
-
-            if calibrated_energy <= energy <= selectedEnergies[j]:
-                if stopping != 0:
-                    summed_stopping_power += (1 / stopping)
-                else:
-                    print(f"Warning: Stopping power zero at energy {energy}")
-
-        # Unit conversions according to selected unit
-        if index == 0:
-            summed_stopping_power = summed_stopping_power / material_data[0][1] * 10000
-        elif index == 1:
-            summed_stopping_power = summed_stopping_power / material_data[0][1] * 10
-        elif index == 2:
-            summed_stopping_power *= 0.001
-        elif index == 3:
-            # Avogadro's number: 6.02214076e23; material_data[0][0] assumed atomic mass
-            summed_stopping_power *= 1000 * (6.02214076e-23 / material_data[0][0])
-
-        thickness_list.append(summed_stopping_power)
-
-        # Display thickness and channel values in GUI
-        tk.Label(TabList[num][1].ThicknessFrame, text=f'{summed_stopping_power:.2f}').grid(row=j+1, column=0)
-        tk.Label(TabList[num][1].ThicknessFrame, text=str(points[j][0])).grid(row=j+1, column=1)
-
-    # Calculate average thickness and uncertainty
-    avg_thickness = sum(thickness_list) / len(thickness_list)
-
-    uncertainty_sum = sum((x - avg_thickness)**2 for x in thickness_list) / (len(thickness_list) - 1)
-    uncertainty = math.sqrt(uncertainty_sum)
-
-    # Determine significant figures for display
-    sig_fig = Precision(f'{uncertainty:.2g}')
-
-    # Save results to file
-    with open(TabList[num][4], 'w') as my_file:
-        for val in thickness_list:
-            my_file.write(f'{val:.3f}\n')
-        my_file.write(f'{avg_thickness}\n')
-        my_file.write(f'{uncertainty}\n')
-        my_file.write(str(sig_fig))
-
-    # Display average thickness and uncertainty in GUI
-    tk.Label(TabList[num][1].ThicknessFrame, text=f'Average Thickness ({units_list[index]})').grid(row=nrPeaks+2, column=0)
-    tk.Label(TabList[num][1].ThicknessFrame, text=f'Uncertainty ({units_list[index]})').grid(row=nrPeaks+2, column=1)
-    tk.Label(TabList[num][1].ThicknessFrame, text=f'{avg_thickness:.{sig_fig}f}').grid(row=nrPeaks+3, column=0)
-    tk.Label(TabList[num][1].ThicknessFrame, text=f'{uncertainty:.{sig_fig}f}').grid(row=nrPeaks+3, column=1)
-
-    tk.Button(TabList[num][1].ThicknessFrame, command=lambda: ClearWidget('Thickness', 1),
-              text='Reset Results').grid(row=nrPeaks+4, columnspan=2)
-
-#########################################################################################
-# Calculo da espessura no método ROI Select
-########################################################################################
-def ROI_Thick_Calculation():
-
-    num = Current_Tab() ## Get current tab's index nr
-    ClearWidget('Thickness', 0)
-    TabList[num][1].ThicknessFrame.grid(row = 5, columnspan = 3, pady = 5)
-    units_list = ['nm', '\u03bcm',
-                  '\u03bcg' + ' cm' + '{}'.format('\u207B' + '\u00b2'),
-                  '10' + '{}'.format('\u00b9' + '\u2075') + ' Atoms' 
-                   + ' cm' + '{}'.format('\u207B' + '\u00b3')]
-    units_values = [10.0**9, 10.0**6, 0.0, -1.0]
     index = units_values.index(TabList[num][1].units.get())
-    calibration = TabList[num][1].Regression_List[0].get() ## vamos selecionar apenas uma calibração
-    
-    ## Get the selected material and stop. pow.
-    Material_choice = TabList[num][1].Mat.get() # Determina qual o ficheiro do material a ler
-    Material_choice = 'Files\Materials\\' +  Material_choice + '.txt'
-    material_data = File_Reader(Material_choice, '|', 'Yes', 'No') #Daqui obtemos a lista que ira guardar
 
-    ## Get energies of selected source
-    energies = [TabList[0][1].DecayList[k].get() for k in range(len(TabList[0][1].DecayList))]
-    energies.remove(-1.0) ## Remove unselected energies
+    if method == 'ROI Select':
+        # --- ROI Select logic ---
+        calibration = TabList[num][1].Regression_List[0].get()  # vamos selecionar apenas uma calibração
 
-    ## Get slope and intercept of the selected calib
-    calib_params = File_Reader(TabList[0][4], '0', 'String', 'No')
-    ## Check energy units to match the stop. pow. ones
-    if calib_params[0] == 'keV':
-        m = str(float(calib_params[1])*1000) ## slope
-        dm = str(float(calib_params[2])*1000) ## slope uncertainty
-    else:  ###   !!!!!!!!!!    VERIFICAR ESTA PARTE   !!!!!!!!!!!   ###
-        m = str(float(calib_params[1])*1000) 
-        dm = str(float(calib_params[2])*1000) 
+        # Get the selected material and stop. pow.
+        Material_choice = TabList[num][1].Mat.get()
+        Material_choice = 'Files\\Materials\\' + Material_choice + '.txt'
+        material_data = File_Reader(Material_choice, '|', 'Yes', 'No')
 
-    ## Get calibration centroids
-    calibCents = [File_Reader(TabList[0][3], ',', 'Yes', 'No')[k][0] for k in range(len(File_Reader(TabList[0][3], ',', 'Yes', 'No')))]
-    ## Get calibration peak error
-    calibErr = [File_Reader(TabList[0][3], ',', 'Yes', 'No')[k][1] for k in range(len(File_Reader(TabList[0][3], ',', 'Yes', 'No')))]
-    ## Get film centroids
-    filmCents = [File_Reader(TabList[num][3], ',', 'Yes', 'No')[k][0] for k in range(len(File_Reader(TabList[num][3], ',', 'Yes', 'No')))]
-    ## Get film peak error
-    filmErr = [File_Reader(TabList[num][3], ',', 'Yes', 'No')[k][1] for k in range(len(File_Reader(TabList[num][3], ',', 'Yes', 'No')))]
-    
-    ## Calculate energy loss and uncertainty, returning min and max energy of alphas after crossing the film
-    Emin, Emax, eloss = Eloss(energies, calibCents, filmCents, calibErr, filmErr, m, dm)
+        # Get energies of selected source
+        energies = [TabList[0][1].DecayList[k].get() for k in range(len(TabList[0][1].DecayList))]
+        energies = [e for e in energies if e != -1.0]  # Remove unselected energies
 
-    ## Get selected material stop. pow.
-    Material_choice = TabList[num][1].Mat.get() 
-    Material_choice = 'Files\Materials\\' +  Material_choice + '.txt'
-    material_data = File_Reader(Material_choice, '|', 'Yes', 'No')
+        # Get slope and intercept of the selected calib
+        calib_params = File_Reader(TabList[0][4], '0', 'String', 'No')
+        # Check energy units to match the stop. pow. ones
+        if calib_params[0] == 'keV':
+            m = str(float(calib_params[1]) * 1000)  # slope
+            dm = str(float(calib_params[2]) * 1000)  # slope uncertainty
+        else:
+            m = str(float(calib_params[1]) * 1000)
+            dm = str(float(calib_params[2]) * 1000)
 
-    ## Calculate thickness from energy loss
-    ## for each peak
-    thickPeak = Thickness(energies, Emin, Emax, material_data)
-    ## the mean of all peaks
-    meanThick = np.mean([thick for thick in thickPeak])
-    ## Calculate mean thickness std deviation
-    stdDevThick = np.std(thickPeak)
+        # Get calibration centroids and errors
+        calibCents = [File_Reader(TabList[0][3], ',', 'Yes', 'No')[k][0] for k in range(len(File_Reader(TabList[0][3], ',', 'Yes', 'No')))]
+        calibErr = [File_Reader(TabList[0][3], ',', 'Yes', 'No')[k][1] for k in range(len(File_Reader(TabList[0][3], ',', 'Yes', 'No')))]
+        filmCents = [File_Reader(TabList[num][3], ',', 'Yes', 'No')[k][0] for k in range(len(File_Reader(TabList[num][3], ',', 'Yes', 'No')))]
+        filmErr = [File_Reader(TabList[num][3], ',', 'Yes', 'No')[k][1] for k in range(len(File_Reader(TabList[num][3], ',', 'Yes', 'No')))]
 
-    ## Write results to file
-    result_file = open(TabList[num][4], 'w')
-    for i in range(0, len(thickPeak)): 
-        result_file.write(str("{:.0f}".format(thickPeak[i]))+'\n')
-    result_file.write(str(meanThick) + '\n')
-    result_file.write(str(stdDevThick) + '\n')
-    result_file.write(str(0))
-    result_file.close()
+        # Calculate energy loss and uncertainty, returning min and max energy of alphas after crossing the film
+        Emin, Emax, eloss = Eloss(energies, calibCents, filmCents, calibErr, filmErr, m, dm)
 
-    ## Display results in the frame
-    ## header
-    tk.Label(TabList[num][1].ThicknessFrame, text = 'Peak Energy\n(MeV)').grid(row = 0, column = 0)
-    tk.Label(TabList[num][1].ThicknessFrame, text = ' ').grid(row = 0, column = 1) #spacer
-    tk.Label(TabList[num][1].ThicknessFrame, text = 'Channel\n').grid(row = 0, column = 2)
-    tk.Label(TabList[num][1].ThicknessFrame, text = ' ').grid(row = 0, column = 3) #spacer
-    tk.Label(TabList[num][1].ThicknessFrame, text = 'Eloss\n(keV)').grid(row = 0, column = 4)
-    tk.Label(TabList[num][1].ThicknessFrame, text = ' ').grid(row = 0, column = 5) #spacer
-    tk.Label(TabList[num][1].ThicknessFrame, text = 'Thickness\n(' + units_list[index] + ')').grid(row = 0, column = 6)
-    ## peak info
-    for k in range(len(eloss)):
-        tk.Label(TabList[num][1].ThicknessFrame, text = '%.3f' % (energies[k]) ).grid(row = k + 1, column = 0)
-        tk.Label(TabList[num][1].ThicknessFrame, text = ' ').grid(row = 0, column = 1) #spacer
-        tk.Label(TabList[num][1].ThicknessFrame, text = '%.1f' % (filmCents[k]) ).grid(row = k + 1, column = 2)
-        tk.Label(TabList[num][1].ThicknessFrame, text = ' ').grid(row = 0, column = 3) #spacer
-        tk.Label(TabList[num][1].ThicknessFrame, text = '%.0f' % (eloss[k]) ).grid(row = k + 1, column = 4)
-        tk.Label(TabList[num][1].ThicknessFrame, text = ' ').grid(row = 0, column = 5) #spacer
-        tk.Label(TabList[num][1].ThicknessFrame, text = '%.0f' % (thickPeak[k]) ).grid(row = k + 1, column = 6)
-    ## thickness final result
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = 'Average Thickness (' + units_list[index] + ')').grid(row = k + 2, column = 0)
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = 'Uncertainty (' + units_list[index] + ')').grid(row = k + 2, column = 4)
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = "{:.0f}".format(meanThick)).grid(row = k + 3, column = 0)
-    tk.Label(TabList[num][1].ThicknessFrame, 
-             text = "{:.0f}".format(stdDevThick)).grid(row = k + 3, column = 4)
-    tk.Button(TabList[num][1].ThicknessFrame, 
-              command = lambda: ClearWidget('Thickness', 1),
-              text = 'Reset Results').grid(row = k + 4, columnspan = 2)
+        # Get selected material stop. pow.
+        Material_choice = TabList[num][1].Mat.get()
+        Material_choice = 'Files\\Materials\\' + Material_choice + '.txt'
+        material_data = File_Reader(Material_choice, '|', 'Yes', 'No')
+
+        # Calculate thickness from energy loss for each peak
+        thickPeak = Thickness(energies, Emin, Emax, material_data)
+        meanThick = np.mean([thick for thick in thickPeak])
+        stdDevThick = np.std(thickPeak)
+
+        # Write results to file
+        with open(TabList[num][4], 'w') as result_file:
+            for val in thickPeak:
+                result_file.write(str("{:.0f}".format(val)) + '\n')
+            result_file.write(str(meanThick) + '\n')
+            result_file.write(str(stdDevThick) + '\n')
+            result_file.write(str(0))
+
+        # Display results in the frame
+        # header
+        tk.Label(TabList[num][1].ThicknessFrame, text='Peak Energy\n(MeV)').grid(row=0, column=0)
+        tk.Label(TabList[num][1].ThicknessFrame, text=' ').grid(row=0, column=1)  # spacer
+        tk.Label(TabList[num][1].ThicknessFrame, text='Channel\n').grid(row=0, column=2)
+        tk.Label(TabList[num][1].ThicknessFrame, text=' ').grid(row=0, column=3)  # spacer
+        tk.Label(TabList[num][1].ThicknessFrame, text='Eloss\n(keV)').grid(row=0, column=4)
+        tk.Label(TabList[num][1].ThicknessFrame, text=' ').grid(row=0, column=5)  # spacer
+        tk.Label(TabList[num][1].ThicknessFrame, text='Thickness\n(' + units_list[index] + ')').grid(row=0, column=6)
+        # peak info
+        for k in range(len(eloss)):
+            tk.Label(TabList[num][1].ThicknessFrame, text='%.3f' % (energies[k])).grid(row=k + 1, column=0)
+            tk.Label(TabList[num][1].ThicknessFrame, text=' ').grid(row=0, column=1)  # spacer
+            tk.Label(TabList[num][1].ThicknessFrame, text='%.1f' % (filmCents[k])).grid(row=k + 1, column=2)
+            tk.Label(TabList[num][1].ThicknessFrame, text=' ').grid(row=0, column=3)  # spacer
+            tk.Label(TabList[num][1].ThicknessFrame, text='%.0f' % (eloss[k])).grid(row=k + 1, column=4)
+            tk.Label(TabList[num][1].ThicknessFrame, text=' ').grid(row=0, column=5)  # spacer
+            tk.Label(TabList[num][1].ThicknessFrame, text='%.0f' % (thickPeak[k])).grid(row=k + 1, column=6)
+        # thickness final result
+        tk.Label(TabList[num][1].ThicknessFrame,
+                 text='Average Thickness (' + units_list[index] + ')').grid(row=k + 2, column=0)
+        tk.Label(TabList[num][1].ThicknessFrame,
+                 text='Uncertainty (' + units_list[index] + ')').grid(row=k + 2, column=4)
+        tk.Label(TabList[num][1].ThicknessFrame,
+                 text="{:.0f}".format(meanThick)).grid(row=k + 3, column=0)
+        tk.Label(TabList[num][1].ThicknessFrame,
+                 text="{:.0f}".format(stdDevThick)).grid(row=k + 3, column=4)
+        tk.Button(TabList[num][1].ThicknessFrame,
+                  command=lambda: ClearWidget('Thickness', 1),
+                  text='Reset Results').grid(row=k + 4, columnspan=2)
+    else:
+        # --- Standard (non-ROI) logic ---
+        # Get the index of the currently selected units from the units_values list
+        try:
+            index = units_values.index(TabList[num][1].units.get())
+        except ValueError:
+            print("Error: Selected unit not found in units_values list.")
+            return
+
+        # Determine the material file path based on user selection
+        material_filename = 'Files/Materials/' + TabList[num][1].Mat.get() + '.txt'
+        material_data = File_Reader(material_filename, '|', 'Yes', 'No')
+
+        # Initialize accumulators for slope and intercept from selected regressions
+        slope_sum = 0.0
+        intercept_sum = 0.0
+        selectedCalibs = []
+        regression_value_map = getattr(TabList[num][1], 'regression_value_map', {})
+
+        # Build the list of indices from TabTracker corresponding to selected regressions
+        for i, reg_var in enumerate(TabList[num][1].Regression_List):
+            val = reg_var.get()
+            if val != -1 and val in regression_value_map:
+                try:
+                    idx = TabTracker.index(regression_value_map[val])
+                    selectedCalibs.append(idx)
+                except ValueError:
+                    print(f"Warning: Regression selection value {regression_value_map[val]} not found in TabTracker")
+
+        if not selectedCalibs:
+            print("No valid regression selected. Aborting calculation.")
+            return
+
+        # Assuming all selected calibrations share the same DecayList source, get channels used for stopping power range
+        selectedEnergies = []
+        first_reg_idx = selectedCalibs[0]
+        if first_reg_idx >= len(TabList):
+            print(f"Error: First regression index {first_reg_idx} out of range for TabList.")
+            return
+
+        for j in range(len(TabList[first_reg_idx][1].DecayList)):
+            decays = TabList[first_reg_idx][1].DecayList[j].get()
+            if decays != -1:
+                selectedEnergies.append(decays)
+
+        selectedEnergies.sort()
+        nrPeaks = len(selectedEnergies)
+
+        # Sum slopes and intercepts from each selected regression file to compute average later
+        for reg_idx in selectedCalibs:
+            if reg_idx >= len(TabList):
+                print(f"Warning: Regression index {reg_idx} out of range for TabList, skipping.")
+                continue
+            reg_file = TabList[reg_idx][4]
+            reg_data = File_Reader(reg_file, '0', 'String', 'No')
+            if reg_data[0] == 'keV':
+                reg_data[1] = str(float(reg_data[1]) * 1000)
+                reg_data[3] = str(float(reg_data[3]) * 1000)
+            slope_sum += float(reg_data[1])
+            intercept_sum += float(reg_data[3])
+
+        if len(selectedCalibs) == 0:
+            print("No regressions to average.")
+            return
+
+        slope_avg = slope_sum / len(selectedCalibs)
+        intercept_avg = intercept_sum / len(selectedCalibs)
+
+        # Read the peaks data (material points), sort ascending by channel or energy
+        points = File_Reader(TabList[num][3], ',', 'No', 'No')
+        points.sort()
+        thickness_list = []
+
+        # Setup labels for GUI
+        tk.Label(TabList[num][1].ThicknessFrame, text=f'Thickness ({units_list[index]})').grid(row=0, column=0)
+        tk.Label(TabList[num][1].ThicknessFrame, text='Channel').grid(row=0, column=1)
+
+        for j in range(nrPeaks):
+            # Calibrate each point with average regression slope and intercept
+            calibrated_energy = (slope_avg * points[j][0]) + intercept_avg
+            summed_stopping_power = 0.0
+
+            # Sum inverse stopping power over energy interval [calibrated_energy, selectedEnergies[j]]
+            for i in range(1, len(material_data)):
+                energy = material_data[i][0]
+                stopping = material_data[i][1]
+                if calibrated_energy <= energy <= selectedEnergies[j]:
+                    if stopping != 0:
+                        summed_stopping_power += (1 / stopping)
+                    else:
+                        print(f"Warning: Stopping power zero at energy {energy}")
+
+            # Unit conversions according to selected unit
+            if index == 0:
+                summed_stopping_power = summed_stopping_power / material_data[0][1] * 10000
+            elif index == 1:
+                summed_stopping_power = summed_stopping_power / material_data[0][1] * 10
+            elif index == 2:
+                summed_stopping_power *= 0.001
+            elif index == 3:
+                summed_stopping_power *= 1000 * (6.02214076e-23 / material_data[0][0])
+
+            thickness_list.append(summed_stopping_power)
+
+            # Display thickness and channel values in GUI
+            tk.Label(TabList[num][1].ThicknessFrame, text=f'{summed_stopping_power:.2f}').grid(row=j+1, column=0)
+            tk.Label(TabList[num][1].ThicknessFrame, text=str(points[j][0])).grid(row=j+1, column=1)
+
+        # Calculate average thickness and uncertainty
+        avg_thickness = sum(thickness_list) / len(thickness_list)
+        uncertainty_sum = sum((x - avg_thickness) ** 2 for x in thickness_list) / (len(thickness_list) - 1)
+        uncertainty = math.sqrt(uncertainty_sum)
+        sig_fig = Precision(f'{uncertainty:.2g}')
+
+        # Save results to file
+        with open(TabList[num][4], 'w') as my_file:
+            for val in thickness_list:
+                my_file.write(f'{val:.3f}\n')
+            my_file.write(f'{avg_thickness}\n')
+            my_file.write(f'{uncertainty}\n')
+            my_file.write(str(sig_fig))
+
+        # Display average thickness and uncertainty in GUI
+        tk.Label(TabList[num][1].ThicknessFrame, text=f'Average Thickness ({units_list[index]})').grid(row=nrPeaks+2, column=0)
+        tk.Label(TabList[num][1].ThicknessFrame, text=f'Uncertainty ({units_list[index]})').grid(row=nrPeaks+2, column=1)
+        tk.Label(TabList[num][1].ThicknessFrame, text=f'{avg_thickness:.{sig_fig}f}').grid(row=nrPeaks+3, column=0)
+        tk.Label(TabList[num][1].ThicknessFrame, text=f'{uncertainty:.{sig_fig}f}').grid(row=nrPeaks+3, column=1)
+        tk.Button(TabList[num][1].ThicknessFrame, command=lambda: ClearWidget('Thickness', 1),
+                  text='Reset Results').grid(row=nrPeaks+4, columnspan=2)
     
     return
 
-#########################################################################################
-# Recebe os resultados dos algoritmos e mostra no GUI
-########################################################################################
+#########################################
+# Displays algorithm results in the GUI #
+#########################################
 def ResultManager():
+    """
+    Displays the results of the selected analysis algorithm in the Results frame of the current tab.
 
+    This function handles both standard and 'ROI Select' analysis methods:
+      - For 'ROI Select', it displays a list of detected peak centroids, their uncertainties (σ), and σ/√N,
+        each with a selectable checkbox.
+      - For standard methods, it displays a list of detected channels and their counts, each with a selectable checkbox.
+
+    For each result, a Tkinter Checkbutton is created to allow the user to select or deselect individual results.
+    The function also resets the Results frame before displaying new results.
+
+    Dependencies:
+        - Uses global TabList and tkinter for GUI elements.
+        - Relies on the File_Reader helper function to load results from file.
+
+    Returns:
+        None
+    """
     num = Current_Tab()
 
-    ClearWidget('Results', 0) # A funcao e evocada para dar reset aos valores anteriores
-    TabList[num][1].ResultFrame.grid(row = 3, columnspan = 2, pady = 5)
+    ClearWidget('Results', 0)  # Reset previous results
+    TabList[num][1].ResultFrame.grid(row=3, columnspan=2, pady=5)
 
-    values = File_Reader(TabList[num][3], ',', 'No', 'No') #Esta leitura devolve os valores de channel e counts
+    method = TabList[num][1].Algorithm_Method.get()
 
-    for j in range(0, len(values)): # O ciclo for apenas cria os checkbuttons e as labels para depois guardar
-                                    # os valores a serem apagados/usados nas funcoes seguintes
-        Result_Button = tk.Checkbutton(TabList[num][1].ResultFrame, variable = TabList[num][1].Var_Data[j],
-                onvalue = 1, offvalue = -1,
-                text = 'Channel: ' + str(values[j][0]))
-        Result_Button.grid(row = j , column = 0)
-        Result_Button.select()
-        tk.Label(TabList[num][1].ResultFrame, 
-                text = '\t Counts: ' + str(values[j][1])).grid(row = j , column = 1)
-
-#########################################################################################
-# Recebe os resultados do algoritmo ROI Select e mostra no GUI
-########################################################################################
-def ROIResultManager():
-
-    num = Current_Tab()
-
-    ClearWidget('Results', 0) # A funcao e evocada para dar reset aos valores anteriores
-    TabList[num][1].ResultFrame.grid(row = 3, columnspan = 2, pady = 5)
-
-    values = File_Reader(TabList[num][3], ',', 'Yes', 'No') #Esta leitura devolve os valores de channel e counts
-
-    for j in range(0, len(values)): # O ciclo for apenas cria os checkbuttons e as labels para depois guardar
-                                    # os valores a serem apagados/usados nas funcoes seguintes
-        Result_Button = tk.Checkbutton(TabList[num][1].ResultFrame, variable = TabList[num][1].Var_Data[j],
-                onvalue = 1, offvalue = -1,
-                text = 'Centroid: ' + str("{:.1f}".format(values[j][0])))
-        Result_Button.grid(row = j , column = 0)
-        Result_Button.select()
-        tk.Label(TabList[num][1].ResultFrame, 
-                text = '\t \u03C3 =  ' + str("{:.1f}".format(values[j][2]))).grid(row = j , column = 1)
-        tk.Label(TabList[num][1].ResultFrame, 
-                text = '\t \u03C3/\u221aN =  ' + str("{:.3f}".format(values[j][1]))).grid(row = j , column = 2)
+    # ROI Select: expects centroids, sigma/sqrt(N), sigma
+    if method == 'ROI Select':
+        values = File_Reader(TabList[num][3], ',', 'Yes', 'No')
+        for j in range(len(values)):
+            Result_Button = tk.Checkbutton(
+                TabList[num][1].ResultFrame,
+                variable=TabList[num][1].Var_Data[j],
+                onvalue=1, offvalue=-1,
+                text='Centroid: ' + str("{:.1f}".format(values[j][0]))
+            )
+            Result_Button.grid(row=j, column=0)
+            Result_Button.select()
+            tk.Label(
+                TabList[num][1].ResultFrame,
+                text='\t \u03C3 =  ' + str("{:.1f}".format(values[j][2]))
+            ).grid(row=j, column=1)
+            tk.Label(
+                TabList[num][1].ResultFrame,
+                text='\t \u03C3/\u221aN =  ' + str("{:.3f}".format(values[j][1]))
+            ).grid(row=j, column=2)
+    # Standard: expects channel and counts
+    else:
+        values = File_Reader(TabList[num][3], ',', 'No', 'No')
+        for j in range(len(values)):
+            Result_Button = tk.Checkbutton(
+                TabList[num][1].ResultFrame,
+                variable=TabList[num][1].Var_Data[j],
+                onvalue=1, offvalue=-1,
+                text='Channel: ' + str(values[j][0])
+            )
+            Result_Button.grid(row=j, column=0)
+            Result_Button.select()
+            tk.Label(
+                TabList[num][1].ResultFrame,
+                text='\t Counts: ' + str(values[j][1])
+            ).grid(row=j, column=1)
+    return
         
 ##########################################################################################
 # Retira os resultados que nao estao checked e atualiza o txt dos resultados 
@@ -1198,7 +1191,7 @@ def ROI_Select_Alg():
             for i in range(len(cents)):
                 results.write(str(cents[i]) + ',' + str(errs[i]) + ',' + str(sigmas[i]) + '\n')
 
-    ROIResultManager()
+    ResultManager()
     return
   
 ###############################################################################

@@ -1058,244 +1058,346 @@ def LinearRegression():
 
     return
 
-###############################################################################
-# Este e o algoritmo que determina a distancia quadrada minima entre pontos
-# input, e pontos de dados
-###############################################################################
+##########################################################################
+# Manual aelection algorithm, finds the data point closest to the given  # 
+# input point (Valuex, Valuey) by calculating the minimum Euclidean      # 
+# distance between the input point and the points in the dataset         #
+##########################################################################
 def ManSelec_Alg(Valuex, Valuey):
-
-    num = Current_Tab()
-    Counts = File_Reader(TabList[num][2], '0', 'No', 'No')
-
-    AuxList = []   #Lista para guardar minimos quadrados
-
-    for i in range(0, len(Counts)):
-        AuxList.append(math.sqrt(((Valuey - Counts[i])**2)+((Valuex - i + 1)**2)))
-
-    # O ciclo for guarda toda a distancia quadrado dos valores input e dos valores dos dados
-
-    Valuex = AuxList.index(min(AuxList)) + 1 #Corresponde ao channel com distancia minima
-    Valuey = Counts[Valuex - 1] #Corresponde ao count do indice do xvalue
-
-    if os.path.isfile(TabList[num][3]) == True:
-        with open(TabList[num][3], 'a') as results:
-            results.write(str(Valuex) + ',' + str(Valuey) + '\n')
-
-    elif os.path.isfile(TabList[num][3]) == False:
-
-        with open(TabList[num][3], 'w') as results:
-            results.write(str(Valuex) + ',' + str(Valuey) + '\n')
-
-    ResultManager()
+    """
+    Finds the data point closest to the given input point (Valuex, Valuey)
+    by calculating the minimum Euclidean distance between the input point
+    and the points in the dataset (where x = channel index, y = counts).
     
-###############################################################################
-# Este e o algoritmo que regista os picos acima de um determinado threshold
-###############################################################################
-def Threshold_Alg():
-
+    Inputs:
+      Valuex - the x-coordinate (channel) of the input point
+      Valuey - the y-coordinate (count) of the input point
+    
+    The function reads the counts data from the current tab file, finds the
+    closest data point, writes the result (channel,count) to an output file
+    (appending or creating it), and then calls ResultManager() to update results.
+    """
     num = Current_Tab()
     Counts = File_Reader(TabList[num][2], '0', 'No', 'No')
 
-    Threshold = TabList[num][1].Algorithm.get()
-    yaxis = []
-    current_peak_counts = 0
-    current_peak = []
-    counter = 0
-    xaxis = []
-    i = 0
-    j = 0
+    # Function to calculate Euclidean distance between input point and data point at index i
+    def dist(i):
+        channel = i + 1  # Channels start at 1
+        count = Counts[i]
+        return math.sqrt((Valuex - channel)**2 + (Valuey - count)**2)
 
-    cut = TabList[num][1].channels_cut.get()
-    width = TabList[num][1].peaks_widths.get()
+    # Find the index of the data point with the minimum distance to the input point
+    min_index = min(range(len(Counts)), key=dist)
 
-#Just iterate of the values of the list itself. Each "count" is an element of Counts
-    for count in (Counts):
-       #Remember, if you hit a peak the condition 
-       # will enter this part always. So the "current_peak_counts" will just 
-       #add the total sum of the area under the peak 
-       # (this may even be useful for FWHM calculations).
-       
+    # Update Valuex and Valuey with the closest data point found
+    Valuex = min_index + 1
+    Valuey = Counts[min_index]
+
+    # Write the closest data point (channel,count) to the output file
+    mode = 'a' if os.path.isfile(TabList[num][3]) else 'w'
+    with open(TabList[num][3], mode) as results:
+        results.write(f"{Valuex},{Valuey}\n")
+
+    # Update results after selection
+    ResultManager()
+
+    return
+    
+################################################################
+# Algorithm to detect and record peaks above a given threshold #
+################################################################
+def Threshold_Alg():
+    """
+    Algorithm to detect and record peaks above a given threshold.
+    
+    The function scans through the count data to identify peaks where
+    counts exceed a specified threshold after a certain channel cut-off.
+    For each peak found, it records the maximum count and the corresponding channel.
+    It also merges peaks that are closer than a specified width, keeping only
+    the highest peak in such cases.
+    
+    Results are saved to an output file (appending or writing new).
+    """
+    num = Current_Tab()
+    Counts = File_Reader(TabList[num][2], '0', 'No', 'No')
+
+    Threshold = TabList[num][1].Algorithm.get()  # Threshold value for peak detection
+    yaxis = []               # Stores peak heights (max counts)
+    xaxis = []               # Stores peak positions (channels)
+    current_peak = []        # Temporary list to hold counts belonging to current peak
+    current_peak_counts = 0  # Sum of counts in current peak (not used further here but can be for FWHM)
+    counter = 0              # Tracks overall position in counts array
+    i = 0                    # Index for looping over counts
+    j = 0                    # Index for tracking peaks stored in xaxis/yaxis
+
+    cut = TabList[num][1].channels_cut.get()  # Channel index cut-off, ignore counts below this channel
+    width = TabList[num][1].peaks_widths.get() # Minimum width to consider two peaks separate
+
+    # Iterate over all counts
+    for count in Counts:
+        # If count is above threshold and past the cut-off channel, accumulate peak data
         if count > Threshold and i > cut:
-                current_peak_counts += count
-                current_peak.append(count)
+            current_peak_counts += count
+            current_peak.append(count)
         else:
             counter += 1
-            #Just checking that our current_peak list is not empty, 
-            #if it is then we're out of a peak and this will just skip this if statment
-            #but if it is not, then we're at the end of a peak 
-            #(count is now <= Threshold) and we should save the max value of
-            #current_peak and put everything to zero (aka move to the next peak)
+            # If current_peak is not empty, we have reached the end of a peak
             if current_peak:
-                    yaxis.append(max(current_peak))
-                    xaxis.append(counter + current_peak.index(max(current_peak)))
-                    if len(xaxis) > 1:
-                        if xaxis[j] - xaxis[j-1] < width:  
-                            decider = max(yaxis[j-1], yaxis[j])
-                            if decider == yaxis[j]:
-                                yaxis.pop(j-1)
-                                xaxis.pop(j-1)
-                            elif decider == yaxis[j-1]:
-                                yaxis.pop(j)
-                                xaxis.pop(j)
-                            j -= 1
-                    counter = counter + len(current_peak)
-                    current_peak_counts = 0
-                    current_peak = []
-                    j += 1
+                # Record the maximum value of the current peak and its position
+                max_peak = max(current_peak)
+                peak_pos = counter + current_peak.index(max_peak)
+                yaxis.append(max_peak)
+                xaxis.append(peak_pos)
+
+                # Merge peaks closer than 'width'
+                if len(xaxis) > 1:
+                    if xaxis[j] - xaxis[j-1] < width:
+                        # Decide which peak to keep (the highest one)
+                        decider = max(yaxis[j-1], yaxis[j])
+                        if decider == yaxis[j]:
+                            yaxis.pop(j-1)
+                            xaxis.pop(j-1)
+                        elif decider == yaxis[j-1]:
+                            yaxis.pop(j)
+                            xaxis.pop(j)
+                        j -= 1
+
+                # Reset for next peak
+                counter = counter + len(current_peak)
+                current_peak_counts = 0
+                current_peak = []
+                j += 1
         i += 1
 
-    if os.path.isfile(TabList[num][3]) == True:
-        with open(TabList[num][3], 'a') as results:
-            for i in range(len(xaxis)):
-                results.write(str(xaxis[i]) + ',' + str(yaxis[i]) + '\n')
+    # Write detected peaks (channel, count) to output file
+    mode = 'a' if os.path.isfile(TabList[num][3]) else 'w'
+    with open(TabList[num][3], mode) as results:
+        for i in range(len(xaxis)):
+            results.write(f"{xaxis[i]},{yaxis[i]}\n")
 
-    elif os.path.isfile(TabList[num][3]) == False:
-        with open(TabList[num][3], 'w') as results:
-            for i in range(len(xaxis)):
-                results.write(str(xaxis[i]) + ',' + str(yaxis[i]) + '\n')
+    # Note: If the last peak extends to the end of the data, it may not be added.
+    # This should be checked if needed.
 
-    #If the last peak is not added because the data ends with a peak (could be a problem, you should check it)
     ResultManager()
 
-###############################################################################
-# Funcao para o algoritmo ROI Select
+################################################################################
+# ROI_Select_Alg: Detects peaks within user-defined ROIs and records their      #
+# centroids, uncertainties, and sigma/sqrt(N) for the ROI Select algorithm.     #
 ################################################################################
 def ROI_Select_Alg():
-    
+    """
+    Detects and analyzes peaks within user-defined Regions of Interest (ROIs)
+    for the 'ROI Select' analysis method. For each ROI, calculates the centroid,
+    uncertainty, and sigma/sqrt(N) using the Analyze() helper.
+
+    Results are appended or written to the results file for the current tab,
+    and the GUI is updated to display the detected peaks and their statistics.
+
+    Steps:
+        1. Reads the current tab's counts data.
+        2. Retrieves lower and upper bounds for up to 6 ROIs from the GUI.
+        3. Calls Analyze() to compute centroids, uncertainties, and sigma/sqrt(N).
+        4. Writes results to the output file (appending if it exists, creating otherwise).
+        5. Calls ResultManager() to update the results display in the GUI.
+
+    Dependencies:
+        - Uses global TabList and tkinter for GUI elements.
+        - Relies on File_Reader and Analyze helper functions.
+
+    Returns:
+        None
+    """
     num = Current_Tab()
+    # Read counts data for the current tab
     counts = File_Reader(TabList[num][2], '0', 'Yes', 'No')
 
+    # Retrieve ROI lower and upper bounds from the GUI (up to 6 ROIs)
     roi_down = [TabList[num][1].ROIdown1.get(),
                 TabList[num][1].ROIdown2.get(),
                 TabList[num][1].ROIdown3.get(),
                 TabList[num][1].ROIdown4.get(),
                 TabList[num][1].ROIdown5.get(),
                 TabList[num][1].ROIdown6.get()]
-    
-    roi_up = [  TabList[num][1].ROIup1.get(),
-                TabList[num][1].ROIup2.get(),
-                TabList[num][1].ROIup3.get(),
-                TabList[num][1].ROIup4.get(),
-                TabList[num][1].ROIup5.get(),
-                TabList[num][1].ROIup6.get()]
+    roi_up = [TabList[num][1].ROIup1.get(),
+              TabList[num][1].ROIup2.get(),
+              TabList[num][1].ROIup3.get(),
+              TabList[num][1].ROIup4.get(),
+              TabList[num][1].ROIup5.get(),
+              TabList[num][1].ROIup6.get()]
 
-    cents, errs, sigmas  = Analyze(counts, roi_down, roi_up)
+    # Analyze the counts within each ROI to get centroids, uncertainties, and sigma/sqrt(N)
+    cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
 
-    if os.path.isfile(TabList[num][3]) == True:
+    # Write results to file: append if file exists, otherwise create new
+    if os.path.isfile(TabList[num][3]):
         with open(TabList[num][3], 'a') as results:
             for i in range(len(cents)):
-                results.write(str(cents[i]) + ',' + str(errs[i]) + ',' + str(sigmas[i]) + '\n')
-
-    elif os.path.isfile(TabList[num][3]) == False:
+                results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n")
+    else:
         with open(TabList[num][3], 'w') as results:
             for i in range(len(cents)):
-                results.write(str(cents[i]) + ',' + str(errs[i]) + ',' + str(sigmas[i]) + '\n')
+                results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n")
 
+    # Update the results display in the GUI
     ResultManager()
+
     return
   
-###############################################################################
-# Esta e a funcao que abre as imagens da cadeia de decaimento
-################################################################################
+################################################################
+# Displays the decay chain image for the selected alpha source #
+################################################################
 def showimage():
+    """
+    Displays the decay chain image for the currently selected alpha source.
+
+    This function scans the 'Files/Sources/Images' directory for an image file
+    whose name matches the selected alpha source. If a match is found, it constructs
+    the image path and, for specific isotopes, assigns a relevant URL for more information.
+    The function then attempts to clear any previous image widgets and display the
+    selected image in a popup window, optionally with a hyperlink.
+
+    Steps:
+        1. Get the currently selected alpha source from the GUI.
+        2. Scan the images directory for a matching file.
+        3. If found, construct the image path and assign a URL if applicable.
+        4. Clear any previous image widgets.
+        5. Display the image and optional link in a popup window.
+
+    Dependencies:
+        - Uses global TabList and tkinter for GUI elements.
+        - Relies on the wng.Images helper for displaying images and links.
+
+    Returns:
+        None
+    """
     num = Current_Tab()
-    alphas = TabList[num][1].Source.get()
-    Dir = os.scandir('Files\Sources\Images')
+    alphas = TabList[num][1].Source.get()  # Get the selected alpha source name
+    Dir = os.scandir('Files\Sources\Images')  # Scan the images directory
 
     for entry in Dir:
         if entry.is_file():
-            temp = (os.path.splitext(entry.name))
-            if alphas == temp[0]:
-                picture = 'Files\Sources\Images\\' + alphas + temp[1]
+            temp = os.path.splitext(entry.name)  # Split filename and extension
+            if alphas == temp[0]:  # Check if file name matches the selected source
+                picture = 'Files\Sources\Images\\' + alphas + temp[1]  # Construct image path
 
+                # Assign relevant URL for specific isotopes
                 if alphas == '226Ra':
                     domain = 'https://www.nist.gov/image-23773'
-
                 elif alphas == '232U':
-                    domain = 'https://www.nuclear-power.com/nuclear-power-plant/nuclear-fuel/uranium/uranium-232/decay-half-life-uranium-232/'
-
+                    domain = ('https://www.nuclear-power.com/nuclear-power-plant/'
+                              'nuclear-fuel/uranium/uranium-232/decay-half-life-uranium-232/')
                 else:
-                    domain = ''
+                    domain = ''  # No URL for other isotopes
 
                 try:
-                    ClearWidget('Image', 0)
-                    wng.Images('Decay Chain of ' + alphas, picture, domain)
-
+                    ClearWidget('Image', 0)  # Clear previous image widget(s)
+                    wng.Images('Decay Chain of ' + alphas, picture, domain)  # Display image and link
                 except:
+                    # If clearing fails, still try to display the image
                     wng.Images('Decay Chain of ' + alphas, picture, domain)
 
-################################################################################
-# Gere o evento de obtencao de pontos diretamente do grafico
-################################################################################
-def onclick(event):
+    return
 
+
+############################################################################
+# Event handler for capturing points directly from the plot on mouse click #
+############################################################################
+def onclick(event):
+    """
+    This function is triggered when the user clicks on the graph. It checks if
+    the current algorithm method is set to 'Manual Selection' and the right mouse
+    button (button 3) is clicked. If both conditions are met, it captures the
+    x and y coordinates of the click event and passes them to the manual selection
+    algorithm function (ManSelec_Alg).
+    """
     num = Current_Tab()
 
     decider = TabList[num][1].Algorithm_Method.get()
 
+    # Only process right-click events in 'Manual Selection' mode
     if decider == 'Manual Selection' and event.button == 3:
-    # Estas duas opcoes verificam que so no modo Manual selection e so com o botao direito do rato
-    # e que aparecem os dados
-        xpoint = event.xdata
-        ypoint = event.ydata
-        ManSelec_Alg(xpoint, ypoint)
+        xpoint = event.xdata  # Get x-coordinate from the click event
+        ypoint = event.ydata  # Get y-coordinate from the click event
+        ManSelec_Alg(xpoint, ypoint)  # Call function to process selected point
+    
+    return
 
-##############################################################################
-#Esta funcao ira ler o ficheiro input.
-##############################################################################
+##############################################################
+# Opens a file dialog to upload a data file and processes it #
+##############################################################
 def DataUploader(): 
-
+    """
+    It restricts the selectable files to '.mca' text files and all files.
+    After the user selects a file, it reads the data, processes the structure,
+    plots the graph, and applies the selected algorithm (e.g., thresholding).
+    The tab label is also updated with the filename.
+    """
     num = Current_Tab()
 
-    domain = (('Text Files', '*.mca'), ('All Files', '*.*')) # Aqui limitamos os ficheiros que podem ser abertos
-    filename = fd.askopenfilename(title = 'Open a file', initialdir = ',', filetypes = domain) 
-    # Faz a ligacao tkinter - janela do SO para abrir o ficheiro de dados
+    # Define the allowed file types for upload
+    domain = (('Text Files', '*.mca'), ('All Files', '*.*')) 
 
+    # Open a file dialog window for user to select the data file
+    filename = fd.askopenfilename(title='Open a file', initialdir=',', filetypes=domain) 
+
+    # If no file was selected, do nothing and exit
     if not filename:
-        pass # Certifica que o programa nao queixa caso nao seja efetuado um upload
+        pass
 
     else:
-        file = File_Reader(filename, '0', 'string', 'Yes') # Aqui le se o ficheiro que foi feito o upload
-        TabList[num][5].Structure(file, filename)    # Logo de seguida faz se o grafico
+        # Read the uploaded file's contents using File_Reader function
+        file = File_Reader(filename, '0', 'string', 'Yes')
+
+        # Process the file structure and generate the initial plot
+        TabList[num][5].Structure(file, filename)
         TabList[num][5].subplots()
+
+        # Retrieve the current algorithm selection and apply it if needed
         value = TabList[num][1].Algorithm.get()
         if value != 0:
             TabList[num][5].threshold(value)
 
-    ## Renames the tab with the filename
+    # Rename the tab to the filename (only the file's name, not the full path)
     try:
         Tabs.RenameTab(filename.split('/')[-1])
     except:
-        ()
+        pass  # Ignore errors in renaming tab
 
     return
 
-##############################################################################
-# Esta funcao gere o evento especifico de adicionar tabs, futuramente
-# ira ter uma seccao especifica para esconder tabs e recuperar a tab
-# de adicionar tabs, caso haja menos que 15 tabs
-#############################################################################
-def handleTabChange(event):
 
+######################################################
+# Handles the event of changing tabs in the notebook #
+######################################################
+def handleTabChange(event):
+    """
+    If the user selects the last tab (the '+' tab) and the number of tabs is less than 15,
+    a popup menu appears to allow the user to select a new type of tab to open.
+    
+    If the number of tabs reaches 15 or more, the '+' tab is hidden to prevent adding more tabs.
+    """
+
+    # Check if the currently selected tab is the last one (the '+' tab)
+    # and if the total number of tabs is less than 15
     if Notebook.notebook.select() == Notebook.notebook.tabs()[-1] and len(Notebook.notebook.tabs()) < 15:
-        # Se a tab 'atual' for igual a ultima, que sera sempre a tab '+', e se o numero de tabs for menor que 15
-        # Adiciona se outra tab
-            
+        # Show popup menu for tab selection
         wng.popup('Tab Selector Menu')
 
-        tk.Label(wng.warning, text = 'Please Select New Type of Tab to Open \n').pack()
-        tk.Button(wng.warning, command = lambda: Tabs.tab_change(1),
-                        text = 'Calibration Trial').pack()
-        tk.Button(wng.warning, command = lambda: Tabs.tab_change(2), 
-                        text = 'Material Trial').pack()
-        tk.Label(wng.warning, text ='\n').pack()
-        tk.Button(wng.warning, text = 'Return',
-                    command = lambda : Tabs.tab_change(3)).pack()
-        # os numeros do tab_change indicam quais os tipos de tabs a adicionar
+        tk.Label(wng.warning, text='Please Select New Type of Tab to Open \n').pack()
+        tk.Button(wng.warning, command=lambda: Tabs.tab_change(1),
+                  text='Calibration Trial').pack()
+        tk.Button(wng.warning, command=lambda: Tabs.tab_change(2), 
+                  text='Material Trial').pack()
+        tk.Label(wng.warning, text='\n').pack()
+        tk.Button(wng.warning, text='Return',
+                  command=lambda: Tabs.tab_change(3)).pack()
+        # The numbers passed to tab_change() indicate which type of tab to add
 
+    # If there are already 15 or more tabs, hide the '+' tab to prevent adding more
     elif len(Notebook.notebook.tabs()) >= 15:
         Notebook.notebook.hide(14)
-        # Caso se chege ao numero 15 de tabs, o botao '+' e escondido
+
+    return
 
 ############################################################################
 # Esta funcao gere as fontes de radiacao

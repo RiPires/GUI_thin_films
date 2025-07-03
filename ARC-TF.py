@@ -1399,127 +1399,163 @@ def handleTabChange(event):
 
     return
 
-############################################################################
-# Esta funcao gere as fontes de radiacao
-#############################################################################
+#############################################################
+# Handles the setup and display of available alpha sources, #
+# decay energies, and related controls for the current tab  #
+#############################################################
 def SourceReader(*args):
+    """
+    Sets up the source options for the current tab, including available alpha decay energies,
+    checkbuttons for user selection, and controls for displaying the decay chain image and
+    performing linear regression.
 
+    Steps:
+        1. Clears and resets the source options frame for the current tab.
+        2. Loads the available alpha decay energies from the corresponding file.
+        3. Creates checkbuttons for each decay energy, all selected by default.
+        4. Adds a button to display the decay chain image for the selected source.
+        5. Adds a button to perform linear regression and display results.
+
+    Path Handling:
+        - Uses os.path.join for all file and directory paths to ensure compatibility
+          across different operating systems.
+
+    Dependencies:
+        - Uses global TabList, TabTracker, and tkinter for GUI elements.
+        - Relies on the showimage and Final_Results helper functions.
+
+    Returns:
+        None
+    """
     num = Current_Tab()
     value = TabTracker[num]
-    
-    ClearWidget('Source', 0) # Reset dos widgets e da geometria
-    TabList[num][1].SourceOptionsFrame.grid(row = 2, columnspan = 2)
 
+    ClearWidget('Source', 0)  # Reset widgets and layout geometry
+    TabList[num][1].SourceOptionsFrame.grid(row=2, columnspan=2)
+
+    # Reset all decay energies in DecayList to -1 to avoid interference with linear regression
     for i in range(len(TabList[num][1].DecayList)):
-        TabList[num][1].DecayList[i].set(-1) # Aqui garantimos que a mudanca de fontes de radiacao
-        # alpha, nao interfere com a regressao linear a ser efetuada
-    
-    Alpha = TabList[num][1].Source.get()
-    Alpha = 'Files\Sources\Values\\' +  Alpha + '.txt' # Esta adicao garante que o programa 
-                                                    #encontra o ficheiro pretendido
-    with open(Alpha, 'r') as file: # Aqui vai-se buscar todas as opcoes possiveis contidas no ficheiro
-                                    # das fontes de radiacao
+        TabList[num][1].DecayList[i].set(-1)
+
+    # Construct path to the file containing alpha decay energies based on user selection
+    Alpha_name = TabList[num][1].Source.get()
+    Alpha_path = os.path.join('Files', 'Sources', 'Values', f'{Alpha_name}.txt')
+
+    # Read all decay energies from the file
+    with open(Alpha_path, 'r') as file:
         Decay = [float(line) for line in file]
 
-    for i in range(len(Decay)): # Aqui esta a criacao dos checkbuttons para selecionar os valores que o 
-                                # utilizador pretende empregrar nos calculos
-        checkbutton = tk.Checkbutton(TabList[num][1].SourceOptionsFrame, text = str(Decay[i]) + ' MeV',
-                       variable = TabList[num][1].DecayList[i], onvalue = Decay[i], offvalue = -1)
-        checkbutton.grid(row = i, columnspan = 2)
-        checkbutton.select()
+    # Create checkbuttons for each decay energy for user selection
+    for i in range(len(Decay)):
+        checkbutton = tk.Checkbutton(TabList[num][1].SourceOptionsFrame,
+                                     text=str(Decay[i]) + ' MeV',
+                                     variable=TabList[num][1].DecayList[i],
+                                     onvalue=Decay[i],
+                                     offvalue=-1)
+        checkbutton.grid(row=i, columnspan=2)
+        checkbutton.select()  # By default, select all options
 
-    tk.Button(TabList[num][1].SourceOptionsFrame, # Mostra uma imagem da cadeia 
-              text = 'Show Decay Chain', command = showimage).grid(row = i + 1, column = 0)
-    tk.Button(TabList[num][1].SourceOptionsFrame, text = 'Linear Regression',  # Efetua a regressao linear e poe os resultados na primeira tab
-              command = lambda: Final_Results(value)).grid(row = i + 1, column = 1)
-    
-##############################################################################
-# Esta funcao altera a interface dos dados inputs para cada algoritmo
-##############################################################################
+    # Button to show the decay chain image corresponding to the selected source
+    tk.Button(TabList[num][1].SourceOptionsFrame,
+              text='Show Decay Chain',
+              command=showimage).grid(row=i + 1, column=0)
+
+    # Button to perform linear regression and display results on the first tab
+    tk.Button(TabList[num][1].SourceOptionsFrame,
+              text='Linear Regression',
+              command=lambda: Final_Results(value)).grid(row=i + 1, column=1)
+    return
+
+###################################################################
+# Updates the algorithm input interface for the selected analysis #
+# method in the current tab                                       #
+###################################################################
 def Method(*args):
+    """
+    Updates the algorithm input interface for the selected analysis method in the current tab.
 
+    This function dynamically configures the controls and widgets in the algorithm frame
+    based on the user's choice of analysis method:
+      - Manual Selection: Provides instructions and buttons for manual peak selection.
+      - Threshold Input: Provides entry for threshold value and buttons for peak detection.
+      - ROI Select: Provides entry fields for up to 6 Regions of Interest (ROIs) and buttons
+        for peak detection within those regions.
+
+    Steps:
+        1. Clears the previous algorithm UI and resets the algorithm frame.
+        2. Determines the selected analysis method from the GUI.
+        3. Sets up the appropriate controls and widgets for the chosen method.
+
+    Notes:
+        - Avoids unnecessary repetition by grouping similar widget creation.
+        - Ensures only relevant controls are shown for the selected method.
+        - Calls helper functions to clear results or trigger algorithm execution.
+
+    Dependencies:
+        - Uses global TabList and tkinter for GUI elements.
+        - Relies on helper functions: ClearWidget, Unchecked_Results, ROI_Select_Alg, Threshold_Alg.
+
+    Returns:
+        None
+    """
     num = Current_Tab()
 
+    # Clear previous algorithm UI and reset the algorithm frame
     ClearWidget('Algorithm', 0)
-    TabList[num][1].AlgFrame.grid(row = 2, columnspan = 2)
+    TabList[num][1].AlgFrame.grid(row=2, columnspan=2)
 
-    decider = TabList[num][1].Algorithm_Method.get() #Devolve a StringVar que decide qual o algoritmo em uso
+    decider = TabList[num][1].Algorithm_Method.get()  # Get selected algorithm method
 
-    if decider == 'Manual Selection':   #Definicao dos controlos para o algoritmo ManSelec_Alg
+    if decider == 'Manual Selection':
+        # Manual Selection: Instructions and buttons for manual peak selection
         tk.Label(TabList[num][1].AlgFrame, 
-                 text = 'Right-Click on/near the Peaks in the Graphic ').grid(row = 2, columnspan = 2)
+                 text='Right-Click on/near the Peaks in the Graphic ').grid(row=2, columnspan=2)
         tk.Label(TabList[num][1].AlgFrame, 
-                 text = 'For an automatic point detection: ').grid(row = 3, columnspan = 2)
-        tk.Button(TabList[num][1].AlgFrame, text = 'Remove Unchecked', 
-                  command = Unchecked_Results).grid(row = 4, column = 0)
-        tk.Button(TabList[num][1].AlgFrame, text = 'Remove All',
-                  command = lambda: ClearWidget('Results', 1)).grid(row = 4, column = 1)
+                 text='For an automatic point detection: ').grid(row=3, columnspan=2)
+        tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked', 
+                  command=Unchecked_Results).grid(row=4, column=0)
+        tk.Button(TabList[num][1].AlgFrame, text='Remove All',
+                  command=lambda: ClearWidget('Results', 1)).grid(row=4, column=1)
 
         TabList[num][1].Algorithm.set(0)
         TabList[num][5].destroyer()
-     
-    elif decider == 'Threshold Input':  #Definicao dos controlos para o algoritmo Threshold_Alg
-        tk.Label(TabList[num][1].AlgFrame, 
-                 text = 'Please input Threshold: ').grid(row = 2, columnspan = 3)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].Algorithm, relief = 'sunken',
-                  borderwidth = 2).grid(row = 3, columnspan= 3)
-        tk.Button(TabList[num][1].AlgFrame,text = 'Search', 
-                  command =  Threshold_Alg).grid(row = 4, column = 0)
-        tk.Button(TabList[num][1].AlgFrame,text = 'Remove Unchecked',
-                  command = Unchecked_Results).grid(row = 4, column = 1)
-        tk.Button(TabList[num][1].AlgFrame,text = 'Remove All',
-                  command = lambda: ClearWidget('Results', 1)).grid(row = 4, column = 2)
-    
-    elif decider == 'ROI Select':  #Definicao dos controlos para o algoritmo ROI Select
-        tk.Label(TabList[num][1].AlgFrame, 
-                 text = 'ROI Down: ').grid(row = 2, column = 0)
-        tk.Label(TabList[num][1].AlgFrame, 
-                 text = 'ROI Up: ').grid(row = 2, column = 1)
 
+    elif decider == 'Threshold Input':
+        # Threshold Input: Entry for threshold value and buttons for peak detection
         tk.Label(TabList[num][1].AlgFrame, 
-            text = 'Peak 1').grid(row = 3, column = 2)
-        tk.Label(TabList[num][1].AlgFrame, 
-            text = 'Peak 2').grid(row = 4, column = 2) 
-        tk.Label(TabList[num][1].AlgFrame, 
-            text = 'Peak 3').grid(row = 5, column = 2) 
-        tk.Label(TabList[num][1].AlgFrame, 
-            text = 'Peak 4').grid(row = 6, column = 2) 
-        tk.Label(TabList[num][1].AlgFrame, 
-            text = 'Peak 5').grid(row = 7, column = 2) 
-        tk.Label(TabList[num][1].AlgFrame, 
-            text = 'Peak 6').grid(row = 8, column = 2)          
+                 text='Please input Threshold: ').grid(row=2, columnspan=3)
+        tk.Entry(TabList[num][1].AlgFrame, textvariable=TabList[num][1].Algorithm, relief='sunken',
+                 borderwidth=2).grid(row=3, columnspan=3)
+        tk.Button(TabList[num][1].AlgFrame, text='Search', 
+                  command=Threshold_Alg).grid(row=4, column=0)
+        tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
+                  command=Unchecked_Results).grid(row=4, column=1)
+        tk.Button(TabList[num][1].AlgFrame, text='Remove All',
+                  command=lambda: ClearWidget('Results', 1)).grid(row=4, column=2)
 
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIdown1, relief = 'sunken',
-                  borderwidth = 2).grid(row = 3, column = 0)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIup1, relief = 'sunken',
-                  borderwidth = 2).grid(row = 3, column = 1)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIdown2, relief = 'sunken',
-                  borderwidth = 2).grid(row = 4, column = 0)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIup2, relief = 'sunken',
-                  borderwidth = 2).grid(row = 4, column = 1)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIdown3, relief = 'sunken',
-                  borderwidth = 2).grid(row = 5, column = 0)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIup3, relief = 'sunken',
-                  borderwidth = 2).grid(row = 5, column = 1)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIdown4, relief = 'sunken',
-                  borderwidth = 2).grid(row = 6, column = 0)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIup4, relief = 'sunken',
-                  borderwidth = 2).grid(row = 6, column = 1)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIdown5, relief = 'sunken',
-                  borderwidth = 2).grid(row = 7, column = 0)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIup5, relief = 'sunken',
-                  borderwidth = 2).grid(row = 7, column = 1)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIdown6, relief = 'sunken',
-                  borderwidth = 2).grid(row = 8, column = 0)
-        tk.Entry(TabList[num][1].AlgFrame, textvariable = TabList[num][1].ROIup6, relief = 'sunken',
-                  borderwidth = 2).grid(row = 8, column = 1)
-        
-        tk.Button(TabList[num][1].AlgFrame,text = 'Search', 
-                  command = ROI_Select_Alg).grid(row = 9, column = 0)
-        tk.Button(TabList[num][1].AlgFrame,text = 'Remove Unchecked',
-                  command = Unchecked_Results).grid(row = 9, column = 1)
-        tk.Button(TabList[num][1].AlgFrame,text = 'Remove All',
-                  command = lambda: ClearWidget('Results', 1)).grid(row = 9, column = 2)
+    elif decider == 'ROI Select':
+        # ROI Select: Entry fields for up to 6 ROIs and buttons for peak detection
+        tk.Label(TabList[num][1].AlgFrame, text='ROI Down: ').grid(row=2, column=0)
+        tk.Label(TabList[num][1].AlgFrame, text='ROI Up: ').grid(row=2, column=1)
+
+        # Create labels for each peak (1-6)
+        for idx in range(6):
+            tk.Label(TabList[num][1].AlgFrame, text=f'Peak {idx+1}').grid(row=3+idx, column=2)
+
+        # Create entry fields for each ROI lower and upper bound
+        for idx in range(6):
+            tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIdown{idx+1}'),
+                     relief='sunken', borderwidth=2).grid(row=3+idx, column=0)
+            tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIup{idx+1}'),
+                     relief='sunken', borderwidth=2).grid(row=3+idx, column=1)
+
+        tk.Button(TabList[num][1].AlgFrame, text='Search', 
+                  command=ROI_Select_Alg).grid(row=9, column=0)
+        tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
+                  command=Unchecked_Results).grid(row=9, column=1)
+        tk.Button(TabList[num][1].AlgFrame, text='Remove All',
+                  command=lambda: ClearWidget('Results', 1)).grid(row=9, column=2)
+    return
 
 #############################################################################
 # Esta funcao muda uma linha de threshold, caso o utilizador escreva um numero
@@ -1549,214 +1585,254 @@ def Delete(deletes, names, directory, last):
 
     wng.warning.destroy()
 
-#############################################################################
-# Esta funcao deixa dar upload ou apagar ficheiros para a pasta de dados
-# permanentes que utiliza
-############################################################################# 
+##########################################################################
+# Handles uploading and deleting of permanent data files used            #
+# by the application, including alpha source value files, source images, #
+# and material files                                                     #
+##########################################################################
 def File_Manager(Choice, Nature, Action):
+    """
+    Manages the upload and deletion of permanent data files used by the application.
 
+    Parameters:
+        Choice (str): Type of file to manage ('Source' or 'Material').
+        Nature (int): For 'Source', 1 = value file (.txt), 0 = image file (.jpg/.jpeg/.png).
+                      For 'Material', always 0.
+        Action (int): 1 = Upload file, 0 = Delete file.
+
+    Behavior:
+        - For uploading, opens a file dialog for the user to select a file and copies it to the
+          appropriate directory.
+        - For deleting, shows a popup with checkboxes for each file in the relevant directory,
+          allowing the user to select files to delete.
+        - After any change, updates the source or material dropdown menus in all relevant tabs.
+
+    Notes:
+        - Uses os.path and os.scandir for directory/file handling.
+        - Uses tkinter.filedialog for file selection and tkinter for popups.
+        - Uses shutil.copy2 for file copying.
+        - Updates global lists (source_list, materials_list) after changes.
+
+    Returns:
+        None
+    """
+    # Handle Source files (value files or images)
     if Choice == 'Source':
-        
+        # Value files (.txt)
         if Nature == 1:
             if Action == 1:
-                filename = fd.askopenfilename(filetypes = (('Text Files', '*.txt'), ('All Files', '*.*')), 
-                                              title = 'Add Alpha Source Energy File')
-                
-                dir = os.getcwd()
-                dir = dir + '\Files\Sources\Values'
-                if not filename:
-                    pass
-                else:
-                    copy2(filename, dir, follow_symlinks=True)
-
+                # Upload: Open file dialog and copy selected file to source values directory
+                filename = fd.askopenfilename(filetypes=(('Text Files', '*.txt'), ('All Files', '*.*')),
+                                              title='Add Alpha Source Energy File')
+                target_dir = os.path.join(os.getcwd(), 'Files', 'Sources', 'Values')
+                if filename:
+                    copy2(filename, target_dir, follow_symlinks=True)
             else:
-                domain = 'Files\Sources\Values'
-                dir = os.scandir(domain)
+                # Delete: Show popup with checkboxes for each file in source values directory
+                domain = os.path.join('Files', 'Sources', 'Values')
+                dir_entries = os.scandir(domain)
                 wng.popup('Delete Alpha Source Files')
                 name_list = []
-                delete_list = []
-
-                for entry in dir:
+                delete_vars = []
+                for entry in dir_entries:
                     if entry.is_file():
-                        temp = (os.path.splitext(entry.name))
-                        name_list.append(temp[0])
-                        delete_list.append(tk.IntVar())
-
-                tk.Label(wng.warning, text = 'Files available for deletion\n').pack()
-
-                for i in range(0, len(name_list)):
-                    tk.Checkbutton(wng.warning, text = name_list[i], variable = delete_list[i],
-                                   onvalue = 1, offvalue = 0).pack()
-                                        
-                tk.Button(wng.warning, command = lambda: Delete(delete_list, name_list, domain, '.txt'),
-                           text = 'Delete Files').pack()
-                
-                tk.Button(wng.warning, command =  lambda: wng.warning.destroy(), 
-                          text = 'Return').pack()
-                
-            Dir = os.scandir('Files\Sources\Values')
+                        name, _ = os.path.splitext(entry.name)
+                        name_list.append(name)
+                        delete_vars.append(tk.IntVar())
+                tk.Label(wng.warning, text='Files available for deletion\n').pack()
+                for i, name in enumerate(name_list):
+                    tk.Checkbutton(wng.warning, text=name, variable=delete_vars[i],
+                                   onvalue=1, offvalue=0).pack()
+                tk.Button(wng.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
+                          text='Delete Files').pack()
+                tk.Button(wng.warning, command=lambda: wng.warning.destroy(),
+                          text='Return').pack()
+            # Update source_list after changes
+            Dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
             source_list.clear()
             for entry in Dir:
                 if entry.is_file():
-                    temp = (os.path.splitext(entry.name))
-                    source_list.append(temp[0])
-                
+                    name, _ = os.path.splitext(entry.name)
+                    source_list.append(name)
+        # Image files (.jpg, .jpeg, .png)
         elif Nature == 0:
             if Action == 1:
-                filename = fd.askopenfilename(filetypes = (('Image Files', '.jpg .jpeg .pgn'), 
-                                                           ('All Files', '*.*')), 
-                                              title = 'Add Alpha Source Energy Decay Image')
-                dir = os.getcwd()
-                dir = dir + '\Files\Sources\Images\\'
-                if not filename:
-                    pass
-                else:
-                    copy2(filename, dir, follow_symlinks=True)
-            
+                # Upload: Open file dialog and copy selected image to source images directory
+                filename = fd.askopenfilename(filetypes=(('Image Files', '.jpg .jpeg .png'),
+                                                         ('All Files', '*.*')),
+                                              title='Add Alpha Source Energy Decay Image')
+                target_dir = os.path.join(os.getcwd(), 'Files', 'Sources', 'Images')
+                if filename:
+                    copy2(filename, target_dir, follow_symlinks=True)
             else:
-                domain = 'Files\Sources\Images'
-                dir = os.scandir(domain)
+                # Delete: Show popup with checkboxes for each file in source images directory
+                domain = os.path.join('Files', 'Sources', 'Images')
+                dir_entries = os.scandir(domain)
                 wng.popup('Delete Alpha Source Chain Images')
                 name_list = []
-                delete_list = []
-
-                for entry in dir:
+                delete_vars = []
+                for entry in dir_entries:
                     if entry.is_file():
-                        temp = (os.path.splitext(entry.name))
-                        name_list.append(temp[0])
-                        delete_list.append(tk.IntVar())
+                        name, _ = os.path.splitext(entry.name)
+                        name_list.append(name)
+                        delete_vars.append(tk.IntVar())
+                tk.Label(wng.warning, text='Files available for deletion\n').pack()
+                for i, name in enumerate(name_list):
+                    tk.Checkbutton(wng.warning, text=name, variable=delete_vars[i],
+                                   onvalue=1, offvalue=0).pack()
+                tk.Button(wng.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
+                          text='Delete Files').pack()
+                tk.Button(wng.warning, command=lambda: wng.warning.destroy(),
+                          text='Return').pack()
 
-                tk.Label(wng.warning, text = 'Files available for deletion\n').pack()
-
-                for i in range(0, len(name_list)):
-                    tk.Checkbutton(wng.warning, text = name_list[i], variable = delete_list[i],
-                                   onvalue = 1, offvalue = 0).pack()
-                                        
-                tk.Button(wng.warning, command = lambda: Delete(delete_list, name_list, domain, '.txt'),
-                           text = 'Delete Files').pack()
-                
-                tk.Button(wng.warning, command =  lambda: wng.warning.destroy(), 
-                          text = 'Return').pack()
-
+    # Handle Material files (.txt)
     elif Choice == 'Material':
         if Action == 1:
-            filename = fd.askopenfilename(filetypes = (('Text Files', '*.txt'), ('All Files', '*.*')), 
-                                            title = 'Add Material File')
-            dir = os.getcwd()
-            dir = dir + '\Files\Materials\\'
-            if not filename:
-                pass
-            else:
-                copy2(filename, dir, follow_symlinks=True)
-        
+            # Upload: Open file dialog and copy selected file to materials directory
+            filename = fd.askopenfilename(filetypes=(('Text Files', '*.txt'), ('All Files', '*.*')),
+                                          title='Add Material File')
+            target_dir = os.path.join(os.getcwd(), 'Files', 'Materials')
+            if filename:
+                copy2(filename, target_dir, follow_symlinks=True)
         else:
-            domain = 'Files\Materials'
-            dir = os.scandir(domain)
+            # Delete: Show popup with checkboxes for each file in materials directory
+            domain = os.path.join('Files', 'Materials')
+            dir_entries = os.scandir(domain)
             wng.popup('Delete Material Files')
             name_list = []
-            delete_list = []
-
-            for entry in dir:
+            delete_vars = []
+            for entry in dir_entries:
                 if entry.is_file():
-                    temp = (os.path.splitext(entry.name))
-                    name_list.append(temp[0])
-                    delete_list.append(tk.IntVar())
-
-            tk.Label(wng.warning, text = 'Files available for deletion\n').pack()
-
-            for i in range(0, len(name_list)):
-                tk.Checkbutton(wng.warning, text = name_list[i], variable = delete_list[i],
-                                onvalue = 1, offvalue = 0).pack()
-                                    
-            tk.Button(wng.warning, command = lambda: Delete(delete_list, name_list, domain, '.txt'),
-                        text = 'Delete Files').pack()
-            
-            tk.Button(wng.warning, command =  lambda: wng.warning.destroy(), 
-                        text = 'Return').pack()
-            
-        Dir = os.scandir('Files\Materials')
+                    name, _ = os.path.splitext(entry.name)
+                    name_list.append(name)
+                    delete_vars.append(tk.IntVar())
+            tk.Label(wng.warning, text='Files available for deletion\n').pack()
+            for i, name in enumerate(name_list):
+                tk.Checkbutton(wng.warning, text=name, variable=delete_vars[i],
+                               onvalue=1, offvalue=0).pack()
+            tk.Button(wng.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
+                      text='Delete Files').pack()
+            tk.Button(wng.warning, command=lambda: wng.warning.destroy(),
+                      text='Return').pack()
+        # Update materials_list after changes
+        Dir = os.scandir(os.path.join('Files', 'Materials'))
         materials_list.clear()
         for entry in Dir:
             if entry.is_file():
-                temp = (os.path.splitext(entry.name))
-                materials_list.append(temp[0])
+                name, _ = os.path.splitext(entry.name)
+                materials_list.append(name)
 
-    for i in range(0, len(TabTracker)):
+    # Update dropdown menus in all tabs after file changes
+    for i in range(len(TabTracker)):
         if TabTracker[i] < 0:
             TabList[i][1].Source_Menu.destroy()
-            TabList[i][1].Source_Menu = tk.OptionMenu(TabList[i][1].SourceFrame, TabList[i][1].Source, 
-                          *source_list, command = SourceReader)
-            TabList[i][1].Source_Menu.grid(row = 1, columnspan = 2)
-
+            TabList[i][1].Source_Menu = tk.OptionMenu(
+                TabList[i][1].SourceFrame, TabList[i][1].Source,
+                *source_list, command=SourceReader)
+            TabList[i][1].Source_Menu.grid(row=1, columnspan=2)
         elif TabTracker[i] > 0:
             TabList[i][1].Mat_Menu.destroy()
-            TabList[i][1].Mat_Menu = tk.OptionMenu(TabList[i][1].SourceFrame, 
-                                                   TabList[i][1].Mat, *materials_list)
-            TabList[i][1].Mat_Menu.grid(row = 1, columnspan = 2)
+            TabList[i][1].Mat_Menu = tk.OptionMenu(
+                TabList[i][1].SourceFrame, TabList[i][1].Mat, *materials_list)
+            TabList[i][1].Mat_Menu.grid(row=1, columnspan=2)
+    return
 
-#############################################################################
-# Permite guardar os resultados todos obtidos no programa para um txt
-#############################################################################
+##########################################
+# Allows the user to save all results    #
+# obtained in the program to a text file #
+##########################################
 def Save_Results():
-    
-    domain = (('Text Files', '*.txt'), ('All Files', '*.*'))
-    file = fd.asksaveasfile(title = 'Save Results', initialdir = ",", filetypes = domain, defaultextension = ".txt")
+    """
+    Saves all results obtained in the program to a user-specified text file.
+
+    This function opens a file dialog for the user to choose a save location and filename.
+    It then writes a summary of all calibration and material trials, including:
+      - Detected peaks and counts for each calibration trial.
+      - Radiation source used and linear regression results (slope, intercept, uncertainties).
+      - Detected peaks, counts, and calculated thickness for each material trial.
+      - Average thickness and uncertainty for each material.
+
+    Steps:
+        1. Opens a save file dialog for the user to specify the output file.
+        2. Iterates through all tabs (TabTracker) to collect calibration and material results.
+        3. For calibration trials:
+            - Writes detected peaks and counts.
+            - Writes source and regression results.
+        4. For material trials:
+            - Writes detected peaks, counts, and thickness.
+            - Writes average thickness and uncertainty.
+        5. Formats all numerical results with appropriate units and significant digits.
+
+    Notes:
+        - Uses File_Reader to load peak and regression/thickness data.
+        - Handles both calibration (TabTracker < 0) and material (TabTracker > 0) tabs.
+        - Units and formatting are handled according to user settings.
+
+    Returns:
+        None
+    """
+    # Define file types for save dialog
+    filetypes = (('Text Files', '*.txt'), ('All Files', '*.*'))
+    file = fd.asksaveasfile(
+        title='Save Results',
+        initialdir=".",
+        filetypes=filetypes,
+        defaultextension=".txt")
 
     if file:
-        file.write('The Results calculated by NUC-RIA\'s ARC-TF were the following:\n\n')
-        for i in range(0, len(TabTracker)):
+        file.write("The Results calculated by NUC-RIA's ARC-TF were the following:\n\n")
+        # Loop through all tabs for calibration trials
+        for i in range(len(TabTracker)):
             if TabTracker[i] < 0:
-                file.write('Calibration Trial ' + str(-TabTracker[i]) + '\n\n')
-                file.write('The detected Peaks and Counts were: \n \n')
-                Peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')
-
-                for j in range(0, len(Peaks)):
-                    file.write('Channel: ' + str("{:.1f}".format(Peaks[j][0])) + '\tCounts: ' + str("{:.1f}".format(Peaks[j][1])) + '\n')
-
-                file.write('\nThe Radiation source used for this trial was: ' + 
+                file.write(f'Calibration Trial {-TabTracker[i]}\n\n')
+                file.write('The detected Peaks and Counts were:\n\n')
+                peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')
+                for peak in peaks:
+                    file.write(f'Channel: {peak[0]:.1f}\tCounts: {peak[1]:.1f}\n')
+                file.write('\nThe Radiation source used for this trial was: ' +
                            TabList[i][1].Source.get() + '\n\n')
-                Regression = File_Reader(TabList[i][4], '0', 'String', 'No', )
-                file.write('The Linear Regression calculated was the following, using ' + 
-                           Regression[0] + ' units.\n\n')
-                
-                file.write('The Slope: ' + '%.*f' % (int(Regression[5]), float(Regression[1])) + ' ' +
-                           u"\u00B1" + ' ' + '%.*f' % (int(Regression[5]), float(Regression[2])) + '\n')
-                file.write('The Intersect: ' + '%.*f' % (int(Regression[6]), float(Regression[3])) + ' ' +
-                           u"\u00B1" + ' ' + '%.*f' % (int(Regression[6]), float(Regression[4])) + '\n')
+                regression = File_Reader(TabList[i][4], '0', 'String', 'No')
+                file.write('The Linear Regression calculated was the following, using ' +
+                           regression[0] + ' units.\n\n')
+                file.write('The Slope: ' +
+                           '%.*f' % (int(regression[5]), float(regression[1])) + ' ± ' +
+                           '%.*f' % (int(regression[5]), float(regression[2])) + '\n')
+                file.write('The Intersect: ' +
+                           '%.*f' % (int(regression[6]), float(regression[3])) + ' ± ' +
+                           '%.*f' % (int(regression[6]), float(regression[4])) + '\n')
                 file.write('_______________________________________________________________\n\n')
 
-        for i in range(0, len(TabTracker)):
+        # Loop through all tabs for material trials
+        for i in range(len(TabTracker)):
             if TabTracker[i] > 0:
-                file.write('Material Trial ' + str(TabTracker[i]) + '\n\n')
-                file.write('The detected Channels, Counts and respectful Thickness approximation were:'
-                            + '\n\n')
-                Peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')
-                Peaks.sort()
+                file.write(f'Material Trial {TabTracker[i]}\n\n')
+                file.write('The detected Channels, Counts and respective Thickness approximation were:\n\n')
+                peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')
+                peaks.sort()
                 thickness = File_Reader(TabList[i][4], '0', 'String', 'No')
 
-                units_list = ['nm', '\u03bcm',
-                  '\u03bcg' + ' cm' + '{}'.format('\u207B' + '\u00b2'),
-                  '10' + '{}'.format('\u00b9' + '\u2075') + ' Atoms' 
-                   + ' cm' + '{}'.format('\u207B' + '\u00b3')]
-
-                units_values = [10.0**9, 10.0**6, 0.0, -1.0]
+                units_list = [
+                    'nm', '\u03bcm',
+                    '\u03bcg cm\u207B\u00B2',
+                    '10\u00B9\u2075 Atoms cm\u207B\u00B3'
+                ]
+                units_values = [1e9, 1e6, 0.0, -1.0]
                 index = units_values.index(TabList[i][1].units.get())
 
-                for j in range(0, len(Peaks)):
-                    file.write('Channel: ' + str("{:.1f}".format(Peaks[j][0])) + '\tCounts: ' + str("{:.1f}".format(Peaks[j][1])) + 
-                               '\tThickness: ' + '%.*f' % (int(thickness[-1]), float(thickness[j])) + 
-                               ' ' + units_list[index] + '\n')
+                for j, peak in enumerate(peaks):
+                    file.write(
+                        f'Channel: {peak[0]:.1f}\tCounts: {peak[1]:.1f}\tThickness: '
+                        f'%.*f {units_list[index]}\n' % (int(thickness[-1]), float(thickness[j]))
+                    )
 
-                file.write('\nThe average thickness, of material ' + 
-                           TabList[i][1].Mat.get() + ' was calculated to be: ' + '('
-                           '%.*f' % (int(thickness[-1]), float(thickness[j + 1])) + 
-                           ' ' + u"\u00B1 " + 
-                           '%.*f' % (int(thickness[-1]), float(thickness[j + 2])) + ') ' + 
+                file.write('\nThe average thickness, of material ' +
+                           TabList[i][1].Mat.get() + ' was calculated to be: (' +
+                           '%.*f' % (int(thickness[-1]), float(thickness[j + 1])) +
+                           ' ± ' +
+                           '%.*f' % (int(thickness[-1]), float(thickness[j + 2])) + ') ' +
                            units_list[index] + '\n\n')
-                
-                '%.*f' % (int(Regression[6]), float(Regression[4]))
-                
                 file.write('_______________________________________________________________\n\n')
+    return
         
 #############################################################################
 # A classe do esqueleto, onde esta a barra de ferramentas e a janela principal

@@ -30,17 +30,20 @@ import math
 from shutil import copy2
 import numpy as np
 import ctypes
+import sys
 
 from Include.Analyze import*
 from Include.Calibration import*
 from Include.FitData import*
 from Include.Eloss import*
 from Include.Thick import*
+from Include.remove_file import*
+from Include.clear_frame import*
 
-
-########## Ajusta-se ao ecra e foca os widgets - Windows ######
-import sys
-import ctypes
+###############################################
+# Handles display scaling                     #
+# works on Windows 10/11 and Linux/Kubuntu    #
+###############################################
 
 # Adjust DPI awareness on Windows only
 if sys.platform == "win32":
@@ -48,6 +51,7 @@ if sys.platform == "win32":
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except Exception as e:
         print(f"Warning: DPI awareness setting failed: {e}")
+
 ###########################################################
 # Returns the index of the Tab the user is on
 ###########################################################
@@ -1646,23 +1650,6 @@ def File_Manager(Choice, Nature, Action):
                 tk.Button(warnings_manager.warning, command=lambda: warnings_manager.warning.destroy(),
                           text='Return').pack()
             # Update source_list after changes
-            Dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
-                        temp = (os.path.splitext(entry.name))
-                        name_list.append(temp[0])
-                        delete_list.append(tk.IntVar())
-
-                tk.Label(wng.warning, text = 'Files available for deletion\n').pack()
-
-                for i in range(0, len(name_list)):
-                    tk.Checkbutton(wng.warning, text = name_list[i], variable = delete_list[i],
-                                   onvalue = 1, offvalue = 0).pack()
-                                        
-                tk.Button(wng.warning, command = lambda: Delete(delete_list, name_list, domain, '.txt'),
-                           text = 'Delete Files').pack()
-                
-                tk.Button(wng.warning, command =  lambda: wng.warning.destroy(), 
-                          text = 'Return').pack()
-                
             Dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
             source_list.clear()
             for entry in Dir:

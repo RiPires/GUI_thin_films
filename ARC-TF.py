@@ -57,7 +57,7 @@ def Current_Tab():
     by getting the index of the selected tab in the notebook.
     """
     ## Get index of the current tab in the notebook
-    tabID = Notebook.notebook.index(Notebook.notebook.select()) - 1
+    tabID = tab_manager.notebook.index(tab_manager.notebook.select()) - 1
 
     ## Check if the user is in the "final results" tab (has negative index)
     if tabID < 0:
@@ -90,7 +90,7 @@ def ClearWidget(Frame, parameter):
      Dependencies:
        - Uses the global TabList and TabTracker structures.
        - Assumes each frame is a Tkinter Frame with children.
-       - Depends on external objects like `Notebook`, `wng`.
+       - Depends on external objects like `tab_manager`, `warnings_manager`.
     """
     num = Current_Tab()
     tab = TabList[num][1]
@@ -121,35 +121,35 @@ def ClearWidget(Frame, parameter):
 
     elif Frame == 'Popup':
         # Destroy warning popup
-        for widget in wng.warning.winfo_children():
+        for widget in warnings_manager.warning.winfo_children():
             widget.destroy()
-        wng.warning.destroy()
+        warnings_manager.warning.destroy()
 
     elif Frame == 'Image':
         # Destroy decay image popup
-        for widget in wng.decay.winfo_children():
+        for widget in warnings_manager.decay.winfo_children():
             widget.destroy()
-        wng.decay.destroy()
+        warnings_manager.decay.destroy()
 
     elif Frame == 'Linear':
         # Clear linear regression result display and optionally delete file
         clear_frame(tab.LinearRegressionFrame)
-        clear_frame(Notebook.Calib_Result2)
+        clear_frame(tab_manager.Calib_Result2)
         if parameter == 1:
             remove_file(TabList[num][4])  # Calibration file
 
     elif Frame == 'Thickness':
         # Clear thickness calculation results and optionally delete file
         clear_frame(tab.ThicknessFrame)
-        clear_frame(Notebook.Mat_Result2)
+        clear_frame(tab_manager.Mat_Result2)
         if parameter == 1:
             tab.Mat.set('Select Material')
             remove_file(TabList[num][4])  # Thickness file
 
     elif Frame == 'Final':
         # Clear final results display
-        clear_frame(Notebook.Mat_Result2)
-        clear_frame(Notebook.Calib_Result2)
+        clear_frame(tab_manager.Mat_Result2)
+        clear_frame(tab_manager.Calib_Result2)
 
     elif Frame == 'Everything':
         # Full reset of all UI elements and files in the current tab
@@ -326,27 +326,27 @@ def Final_Results(tracker):
                 Results = File_Reader(TabList[i][4], '0', 'String', 'No')
 
                 # Display calibration trial info
-                tk.Label(Notebook.Calib_Result2, text=f'Calibration Trial {-TabTracker[i]} - {TabList[i][1].Source.get()}').grid(row=4*i+i, columnspan=3)
-                tk.Label(Notebook.Calib_Result2, text=f'({unit_energy})').grid(row=4*i+i+1, column=0)
-                tk.Label(Notebook.Calib_Result2, text='Values').grid(row=4*i+i+1, column=1)
-                tk.Label(Notebook.Calib_Result2, text='Uncertainty').grid(row=4*i+i+1, column=2)
-                tk.Label(Notebook.Calib_Result2, text='Slope').grid(row=4*i+i+2, column=0)
-                tk.Label(Notebook.Calib_Result2, text='Intersect').grid(row=4*i+i+3, column=0)
-                tk.Label(Notebook.Calib_Result2, text='').grid(row=4*i+i+4, column=0)
+                tk.Label(tab_manager.Calib_Result2, text=f'Calibration Trial {-TabTracker[i]} - {TabList[i][1].Source.get()}').grid(row=4*i+i, columnspan=3)
+                tk.Label(tab_manager.Calib_Result2, text=f'({unit_energy})').grid(row=4*i+i+1, column=0)
+                tk.Label(tab_manager.Calib_Result2, text='Values').grid(row=4*i+i+1, column=1)
+                tk.Label(tab_manager.Calib_Result2, text='Uncertainty').grid(row=4*i+i+1, column=2)
+                tk.Label(tab_manager.Calib_Result2, text='Slope').grid(row=4*i+i+2, column=0)
+                tk.Label(tab_manager.Calib_Result2, text='Intersect').grid(row=4*i+i+3, column=0)
+                tk.Label(tab_manager.Calib_Result2, text='').grid(row=4*i+i+4, column=0)
 
                 # Display slope and intercept with uncertainty
-                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[5]), float(Results[1]))).grid(row=4*i+i+2, column=1)
-                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[5]), float(Results[2]))).grid(row=4*i+i+2, column=2)
-                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[6]), float(Results[3]))).grid(row=4*i+i+3, column=1)
-                tk.Label(Notebook.Calib_Result2, text='%.*f' % (int(Results[6]), float(Results[4]))).grid(row=4*i+i+3, column=2)
+                tk.Label(tab_manager.Calib_Result2, text='%.*f' % (int(Results[5]), float(Results[1]))).grid(row=4*i+i+2, column=1)
+                tk.Label(tab_manager.Calib_Result2, text='%.*f' % (int(Results[5]), float(Results[2]))).grid(row=4*i+i+2, column=2)
+                tk.Label(tab_manager.Calib_Result2, text='%.*f' % (int(Results[6]), float(Results[3]))).grid(row=4*i+i+3, column=1)
+                tk.Label(tab_manager.Calib_Result2, text='%.*f' % (int(Results[6]), float(Results[4]))).grid(row=4*i+i+3, column=2)
 
             else:
                 # Update canvas if no result file
-                Notebook.calib_canvas.update_idletasks()
-                Notebook.calib_canvas.config(scrollregion=Notebook.Calib_Result2.bbox())
-                Notebook.Calib_Result2.bind('<Configure>',
-                    lambda e: Notebook.calib_canvas.configure(
-                        scrollregion=Notebook.calib_canvas.bbox('all'), width=e.width))
+                tab_manager.calib_canvas.update_idletasks()
+                tab_manager.calib_canvas.config(scrollregion=tab_manager.Calib_Result2.bbox())
+                tab_manager.Calib_Result2.bind('<Configure>',
+                    lambda e: tab_manager.calib_canvas.configure(
+                        scrollregion=tab_manager.calib_canvas.bbox('all'), width=e.width))
 
         # MATERIAL RESULTS DISPLAY
         if (tracker >= 0) and TabTracker[i] > 0:
@@ -366,27 +366,27 @@ def Final_Results(tracker):
                 for j in range(size):
                     if j == 0:
                         # Trial header and column labels
-                        tk.Label(Notebook.Mat_Result2, text=f'Material Trial {TabTracker[i]} - {TabList[i][1].Mat.get()}').grid(row=(4+size)*i+i+j, columnspan=2)
-                        tk.Label(Notebook.Mat_Result2, text='Peak Centroid').grid(row=(4+size)*i+i+j+1, column=0)
-                        tk.Label(Notebook.Mat_Result2, text='Thickness').grid(row=(4+size)*i+i+j+1, column=1)
+                        tk.Label(tab_manager.Mat_Result2, text=f'Material Trial {TabTracker[i]} - {TabList[i][1].Mat.get()}').grid(row=(4+size)*i+i+j, columnspan=2)
+                        tk.Label(tab_manager.Mat_Result2, text='Peak Centroid').grid(row=(4+size)*i+i+j+1, column=0)
+                        tk.Label(tab_manager.Mat_Result2, text='Thickness').grid(row=(4+size)*i+i+j+1, column=1)
 
                     # Peak energy and thickness
-                    tk.Label(Notebook.Mat_Result2, text=f'{Peaks[j][0]:.1f}').grid(row=(4+size)*i+i+j+2, column=0)
-                    tk.Label(Notebook.Mat_Result2, text='%.*f %s' % (int(Results[-1]), Results[j], units_list[index])).grid(row=(4+size)*i+i+j+2, column=1)
+                    tk.Label(tab_manager.Mat_Result2, text=f'{Peaks[j][0]:.1f}').grid(row=(4+size)*i+i+j+2, column=0)
+                    tk.Label(tab_manager.Mat_Result2, text='%.*f %s' % (int(Results[-1]), Results[j], units_list[index])).grid(row=(4+size)*i+i+j+2, column=1)
 
                 # Display average and uncertainty
-                tk.Label(Notebook.Mat_Result2, text='\nAverage').grid(row=(4+size)*i+i+j+3, column=0)
-                tk.Label(Notebook.Mat_Result2, text='Uncertainty').grid(row=(4+size)*i+i+j+4, column=0)
-                tk.Label(Notebook.Mat_Result2, text='\n%.*f %s' % (int(Results[-1]), Results[j+1], units_list[index])).grid(row=(4+size)*i+i+j+3, column=1)
-                tk.Label(Notebook.Mat_Result2, text='%.*f %s' % (int(Results[-1]), Results[j+2], units_list[index])).grid(row=(4+size)*i+i+j+4, column=1)
-                tk.Label(Notebook.Mat_Result2, text='').grid(row=(4+size)*i+i+j+5, columnspan=2)
+                tk.Label(tab_manager.Mat_Result2, text='\nAverage').grid(row=(4+size)*i+i+j+3, column=0)
+                tk.Label(tab_manager.Mat_Result2, text='Uncertainty').grid(row=(4+size)*i+i+j+4, column=0)
+                tk.Label(tab_manager.Mat_Result2, text='\n%.*f %s' % (int(Results[-1]), Results[j+1], units_list[index])).grid(row=(4+size)*i+i+j+3, column=1)
+                tk.Label(tab_manager.Mat_Result2, text='%.*f %s' % (int(Results[-1]), Results[j+2], units_list[index])).grid(row=(4+size)*i+i+j+4, column=1)
+                tk.Label(tab_manager.Mat_Result2, text='').grid(row=(4+size)*i+i+j+5, columnspan=2)
 
                 # Update scrollable canvas
-                Notebook.mat_canvas.update_idletasks()
-                Notebook.mat_canvas.config(scrollregion=Notebook.Mat_Result2.bbox())
-                Notebook.Mat_Result2.bind('<Configure>',
-                    lambda e: Notebook.mat_canvas.configure(
-                        scrollregion=Notebook.mat_canvas.bbox('all'), width=e.width))
+                tab_manager.mat_canvas.update_idletasks()
+                tab_manager.mat_canvas.config(scrollregion=tab_manager.Mat_Result2.bbox())
+                tab_manager.Mat_Result2.bind('<Configure>',
+                    lambda e: tab_manager.mat_canvas.configure(
+                        scrollregion=tab_manager.mat_canvas.bbox('all'), width=e.width))
     return
 
 ###############################################################################
@@ -410,7 +410,7 @@ def Calib_Choice():
 
     Dependencies:
         - Uses global TabList and TabTracker structures.
-        - Relies on tkinter for GUI elements and wng for popup management.
+        - Relies on tkinter for GUI elements and warnings_manager for popup management.
 
     Returns:
         None
@@ -432,16 +432,16 @@ def Calib_Choice():
 
     # If no valid calibration regressions found, show warning popup
     if not validCalib:
-        wng.popup('No Linear Regressions detected')
-        tk.Label(wng.warning, text=(
+        warnings_manager.popup('No Linear Regressions detected')
+        tk.Label(warnings_manager.warning, text=(
             'No linear regressions were detected.\n\n'
             'Please perform a Calibration Trial before calculating the film\'s thickness.\n\n')).pack()
-        tk.Button(wng.warning, text='Return', command=lambda: wng.warning.destroy()).pack()
+        tk.Button(warnings_manager.warning, text='Return', command=lambda: warnings_manager.warning.destroy()).pack()
 
     # Otherwise, show selection popup for user to choose regressions
     else:
-        wng.popup('Linear Regression Selection Menu')
-        tk.Label(wng.warning, text=(
+        warnings_manager.popup('Linear Regression Selection Menu')
+        tk.Label(warnings_manager.warning, text=(
             'Please select one or more calibration trials.\n'
             'Choosing multiple calibrations will average the slopes and intercepts.\n\n')).pack()
 
@@ -455,7 +455,7 @@ def Calib_Choice():
             on_value = i + 1
             regression_value_map[on_value] = TabTracker[tab_idx]
             button_Choice = tk.Checkbutton(
-                            wng.warning,
+                            warnings_manager.warning,
                             text=f'Linear Regression of Calibration Trial {-validCalib[i]}',
                             variable=TabList[num][1].Regression_List[i],  # Correct indexing
                             onvalue=on_value,
@@ -467,7 +467,7 @@ def Calib_Choice():
         TabList[num][1].regression_value_map = regression_value_map
 
         # Button to simply close the popup (could be extended with a Confirm button)
-        tk.Button(wng.warning, text='Return', command=lambda: ClearWidget('Popup', 0)).pack()
+        tk.Button(warnings_manager.warning, text='Return', command=lambda: ClearWidget('Popup', 0)).pack()
 
 #####################################################################################
 # Calculate the material thickness for each detected peak and the average thickness #
@@ -920,12 +920,12 @@ def LinearRegression():
         energies = sorted(energies)
         # Check for matching lengths
         if len(centroids) != len(energies):
-            wng.popup('Invalid Linear Regression Configuration')
-            tk.Label(wng.warning, 
+            warnings_manager.popup('Invalid Linear Regression Configuration')
+            tk.Label(warnings_manager.warning, 
                      text="Number of Radiation Decay does not match the number of Peaks detected.\n").pack()
-            tk.Label(wng.warning, 
+            tk.Label(warnings_manager.warning, 
                      text="Please adjust the Searching Algorithms or the number of Decay Energy.\n\n").pack()
-            tk.Button(wng.warning, text='Return', command=lambda: wng.warning.destroy()).pack()
+            tk.Button(warnings_manager.warning, text='Return', command=lambda: warnings_manager.warning.destroy()).pack()
             return
 
         # Clear previous regression output and show regression frame
@@ -986,12 +986,12 @@ def LinearRegression():
         yvalues = sorted(yaxis)
         # Ensure both datasets have the same length (necessary for linear regression)
         if len(xvalues) != len(yvalues):
-            wng.popup('Invalid Linear Regression Configuration')
-            tk.Label(wng.warning, 
+            warnings_manager.popup('Invalid Linear Regression Configuration')
+            tk.Label(warnings_manager.warning, 
                      text="Number of Radiation Decay does not match the number of Peaks detected.\n").pack()
-            tk.Label(wng.warning, 
+            tk.Label(warnings_manager.warning, 
                      text="Please adjust the Searching Algorithms or the number of Decay Energy.\n\n").pack()
-            tk.Button(wng.warning, text='Return', command=lambda: wng.warning.destroy()).pack()
+            tk.Button(warnings_manager.warning, text='Return', command=lambda: warnings_manager.warning.destroy()).pack()
             return
 
         # Clear previous regression output and show regression frame
@@ -1181,8 +1181,8 @@ def Threshold_Alg():
     ResultManager()
 
 ################################################################################
-# ROI_Select_Alg: Detects peaks within user-defined ROIs and records their      #
-# centroids, uncertainties, and sigma/sqrt(N) for the ROI Select algorithm.     #
+# ROI_Select_Alg: Detects peaks within user-defined ROIs and records their     #
+# centroids, uncertainties, and sigma/sqrt(N) for the ROI Select algorithm.    #
 ################################################################################
 def ROI_Select_Alg():
     """
@@ -1265,7 +1265,7 @@ def showimage():
 
     Dependencies:
         - Uses global TabList and tkinter for GUI elements.
-        - Relies on the wng.Images helper for displaying images and links.
+        - Relies on the warnings_manager.Images helper for displaying images and links.
 
     Returns:
         None
@@ -1291,13 +1291,12 @@ def showimage():
 
                 try:
                     ClearWidget('Image', 0)  # Clear previous image widget(s)
-                    wng.Images('Decay Chain of ' + alphas, picture, domain)  # Display image and link
+                    warnings_manager.Images('Decay Chain of ' + alphas, picture, domain)  # Display image and link
                 except:
                     # If clearing fails, still try to display the image
-                    wng.Images('Decay Chain of ' + alphas, picture, domain)
+                    warnings_manager.Images('Decay Chain of ' + alphas, picture, domain)
 
     return
-
 
 ############################################################################
 # Event handler for capturing points directly from the plot on mouse click #
@@ -1365,7 +1364,6 @@ def DataUploader():
 
     return
 
-
 ######################################################
 # Handles the event of changing tabs in the notebook #
 ######################################################
@@ -1379,23 +1377,23 @@ def handleTabChange(event):
 
     # Check if the currently selected tab is the last one (the '+' tab)
     # and if the total number of tabs is less than 15
-    if Notebook.notebook.select() == Notebook.notebook.tabs()[-1] and len(Notebook.notebook.tabs()) < 15:
+    if tab_manager.notebook.select() == tab_manager.notebook.tabs()[-1] and len(tab_manager.notebook.tabs()) < 15:
         # Show popup menu for tab selection
-        wng.popup('Tab Selector Menu')
+        warnings_manager.popup('Tab Selector Menu')
 
-        tk.Label(wng.warning, text='Please Select New Type of Tab to Open \n').pack()
-        tk.Button(wng.warning, command=lambda: Tabs.tab_change(1),
+        tk.Label(warnings_manager.warning, text='Please Select New Type of Tab to Open \n').pack()
+        tk.Button(warnings_manager.warning, command=lambda: Tabs.tab_change(1),
                   text='Calibration Trial').pack()
-        tk.Button(wng.warning, command=lambda: Tabs.tab_change(2), 
+        tk.Button(warnings_manager.warning, command=lambda: Tabs.tab_change(2), 
                   text='Material Trial').pack()
-        tk.Label(wng.warning, text='\n').pack()
-        tk.Button(wng.warning, text='Return',
+        tk.Label(warnings_manager.warning, text='\n').pack()
+        tk.Button(warnings_manager.warning, text='Return',
                   command=lambda: Tabs.tab_change(3)).pack()
         # The numbers passed to tab_change() indicate which type of tab to add
 
     # If there are already 15 or more tabs, hide the '+' tab to prevent adding more
-    elif len(Notebook.notebook.tabs()) >= 15:
-        Notebook.notebook.hide(14)
+    elif len(tab_manager.notebook.tabs()) >= 15:
+        tab_manager.notebook.hide(14)
 
     return
 
@@ -1583,7 +1581,7 @@ def Delete(deletes, names, directory, last):
         if deletes[i].get() == 1:
             os.remove(directory + names[i] + last)
 
-    wng.warning.destroy()
+    warnings_manager.warning.destroy()
 
 ##########################################################################
 # Handles uploading and deleting of permanent data files used            #
@@ -1631,7 +1629,7 @@ def File_Manager(Choice, Nature, Action):
                 # Delete: Show popup with checkboxes for each file in source values directory
                 domain = os.path.join('Files', 'Sources', 'Values')
                 dir_entries = os.scandir(domain)
-                wng.popup('Delete Alpha Source Files')
+                warnings_manager.popup('Delete Alpha Source Files')
                 name_list = []
                 delete_vars = []
                 for entry in dir_entries:
@@ -1639,13 +1637,13 @@ def File_Manager(Choice, Nature, Action):
                         name, _ = os.path.splitext(entry.name)
                         name_list.append(name)
                         delete_vars.append(tk.IntVar())
-                tk.Label(wng.warning, text='Files available for deletion\n').pack()
+                tk.Label(warnings_manager.warning, text='Files available for deletion\n').pack()
                 for i, name in enumerate(name_list):
-                    tk.Checkbutton(wng.warning, text=name, variable=delete_vars[i],
+                    tk.Checkbutton(warnings_manager.warning, text=name, variable=delete_vars[i],
                                    onvalue=1, offvalue=0).pack()
-                tk.Button(wng.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
+                tk.Button(warnings_manager.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
                           text='Delete Files').pack()
-                tk.Button(wng.warning, command=lambda: wng.warning.destroy(),
+                tk.Button(warnings_manager.warning, command=lambda: warnings_manager.warning.destroy(),
                           text='Return').pack()
             # Update source_list after changes
             Dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
@@ -1668,7 +1666,7 @@ def File_Manager(Choice, Nature, Action):
                 # Delete: Show popup with checkboxes for each file in source images directory
                 domain = os.path.join('Files', 'Sources', 'Images')
                 dir_entries = os.scandir(domain)
-                wng.popup('Delete Alpha Source Chain Images')
+                warnings_manager.popup('Delete Alpha Source Chain Images')
                 name_list = []
                 delete_vars = []
                 for entry in dir_entries:
@@ -1676,13 +1674,13 @@ def File_Manager(Choice, Nature, Action):
                         name, _ = os.path.splitext(entry.name)
                         name_list.append(name)
                         delete_vars.append(tk.IntVar())
-                tk.Label(wng.warning, text='Files available for deletion\n').pack()
+                tk.Label(warnings_manager.warning, text='Files available for deletion\n').pack()
                 for i, name in enumerate(name_list):
-                    tk.Checkbutton(wng.warning, text=name, variable=delete_vars[i],
+                    tk.Checkbutton(warnings_manager.warning, text=name, variable=delete_vars[i],
                                    onvalue=1, offvalue=0).pack()
-                tk.Button(wng.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
+                tk.Button(warnings_manager.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
                           text='Delete Files').pack()
-                tk.Button(wng.warning, command=lambda: wng.warning.destroy(),
+                tk.Button(warnings_manager.warning, command=lambda: warnings_manager.warning.destroy(),
                           text='Return').pack()
 
     # Handle Material files (.txt)
@@ -1698,7 +1696,7 @@ def File_Manager(Choice, Nature, Action):
             # Delete: Show popup with checkboxes for each file in materials directory
             domain = os.path.join('Files', 'Materials')
             dir_entries = os.scandir(domain)
-            wng.popup('Delete Material Files')
+            warnings_manager.popup('Delete Material Files')
             name_list = []
             delete_vars = []
             for entry in dir_entries:
@@ -1706,13 +1704,13 @@ def File_Manager(Choice, Nature, Action):
                     name, _ = os.path.splitext(entry.name)
                     name_list.append(name)
                     delete_vars.append(tk.IntVar())
-            tk.Label(wng.warning, text='Files available for deletion\n').pack()
+            tk.Label(warnings_manager.warning, text='Files available for deletion\n').pack()
             for i, name in enumerate(name_list):
-                tk.Checkbutton(wng.warning, text=name, variable=delete_vars[i],
+                tk.Checkbutton(warnings_manager.warning, text=name, variable=delete_vars[i],
                                onvalue=1, offvalue=0).pack()
-            tk.Button(wng.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
+            tk.Button(warnings_manager.warning, command=lambda: Delete(delete_vars, name_list, domain, '.txt'),
                       text='Delete Files').pack()
-            tk.Button(wng.warning, command=lambda: wng.warning.destroy(),
+            tk.Button(warnings_manager.warning, command=lambda: warnings_manager.warning.destroy(),
                       text='Return').pack()
         # Update materials_list after changes
         Dir = os.scandir(os.path.join('Files', 'Materials'))
@@ -1835,133 +1833,187 @@ def Save_Results():
     return
         
 #############################################################################
-# A classe do esqueleto, onde esta a barra de ferramentas e a janela principal
-# do programa
+# Skeleton: Main application window and menu bar class for ARC-TF GUI       #
+#                                                                           #
+# This class creates the main Tkinter window, sets up the menu bar, and     #
+# provides access to all major program functions (file operations, tab      #
+# management, settings, help, etc.).                                        #
 #############################################################################
 class Skeleton:
+    """
+    Main application window and menu bar class for the ARC-TF GUI.
 
+    Responsibilities:
+        - Initializes the main Tkinter window with title, size, and background.
+        - Sets up the main menu bar with submenus for:
+            * File operations (plot, save, clear, exit)
+            * Settings (opens settings dialog)
+            * Tab management (add/remove calibration/material tabs)
+            * Data file management (add/remove source files, images, materials)
+            * Help and About (opens help dialog or README link)
+        - Each menu item is linked to the appropriate callback function.
+
+    Notes:
+        - Variable and method names are in English for clarity.
+        - Menu and submenu variables use double underscores to indicate internal use.
+        - All menu commands use lambda for parameterized callbacks.
+        - The run() method starts the Tkinter main event loop.
+
+    Attributes:
+        main (tk.Tk): The main application window.
+        menu (tk.Menu): The main menu bar.
+
+    Methods:
+        __init__(): Initializes the window and menu bar.
+        run(): Starts the Tkinter main event loop.
+    """
     def __init__(self):
-
-        ############# A Janela Mae ##############
+        # Main application window setup
         self.main = tk.Tk()
         self.main.title('ARC_TF')
         self.main.state('zoomed')
-        self.main.configure(background = 'dark grey')
+        self.main.configure(background='dark grey')
 
-        ############## A barra de Ferramentas e opcoes #################
+        # Main menu bar
         self.menu = tk.Menu(self.main)
-        self.main.config(menu = self.menu)
+        self.main.config(menu=self.menu)
 
-            # O tipico File Menu. Hao de haver mais opcoes no futuro
-        __file_menu = tk.Menu(self.menu, tearoff = False) 
-        self.menu.add_cascade(label = 'File', menu = __file_menu)
-        __file_menu.add_command(label = 'Plot Data', command = DataUploader)
-        __file_menu.add_command(label = "Save Results", command = Save_Results)
+        # File menu: plot, save, clear, exit
+        __file_menu = tk.Menu(self.menu, tearoff=False)
+        self.menu.add_cascade(label='File', menu=__file_menu)
+        __file_menu.add_command(label='Plot Data', command=DataUploader)
+        __file_menu.add_command(label="Save Results", command=Save_Results)
         __file_menu.add_separator()
-        __file_menu.add_command(label = 'Remove Current Plot',
-                                command = lambda: ClearWidget('Graphic', 0))
-        __file_menu.add_command(label = 'Remove Algorithm Results', 
-                                command = lambda: ClearWidget('Results', 0))
-        __file_menu.add_command(label = "Reset All Data from Current Tab",
-                                command = lambda: ClearWidget('Everything', 1) )
+        __file_menu.add_command(label='Remove Current Plot', command=lambda: ClearWidget('Graphic', 0))
+        __file_menu.add_command(label='Remove Algorithm Results', command=lambda: ClearWidget('Results', 0))
+        __file_menu.add_command(label="Reset All Data from Current Tab", command=lambda: ClearWidget('Everything', 1))
         __file_menu.add_separator()
-        __file_menu.add_command(label = 'Exit', command = self.main.quit)
+        __file_menu.add_command(label='Exit', command=self.main.quit)
 
-            # O bloco de definicoes do programa
-        self.menu.add_command(label = 'Settings', command = lambda: wng.Settings())
+        # Settings menu
+        self.menu.add_command(label='Settings', command=lambda: warnings_manager.Settings())
 
-            # Gere as tabs do programa
-        __tabs_menu = tk.Menu(self.menu, tearoff = False)
-        self.menu.add_cascade(label = 'Manage Tabs', menu = __tabs_menu)
-        __tabs_menu.add_command(label = 'Add Calibration Tab', command = lambda: Tabs.tab_change(1))
-        __tabs_menu.add_command(label = 'Add Material Tab', command = lambda: Tabs.tab_change(2))
+        # Tab management menu
+        __tabs_menu = tk.Menu(self.menu, tearoff=False)
+        self.menu.add_cascade(label='Manage Tabs', menu=__tabs_menu)
+        __tabs_menu.add_command(label='Add Calibration Tab', command=lambda: Tabs.tab_change(1))
+        __tabs_menu.add_command(label='Add Material Tab', command=lambda: Tabs.tab_change(2))
         __tabs_menu.add_separator()
-        __tabs_menu.add_command(label = 'Remove Current Tab', command = lambda: Tabs.tab_change(4))
-        
-            # Gere os documentos da base de dados do programa
-        __files_data = tk.Menu(self.menu, tearoff = False)
-        self.menu.add_cascade(label = 'Manage Data Files', menu = __files_data)
-        __files_data.add_command(label = 'Add Alpha Source File', 
-                                 command = lambda: File_Manager('Source', 1, 1))
-        __files_data.add_command(label = 'Remove Alpha Source File',
-                                 command = lambda: File_Manager('Source', 1, 0))
-        __files_data.add_separator()
-        __files_data.add_command(label = 'Add Alpha Source Image',
-                                 command = lambda: File_Manager('Source', 0, 1))
-        __files_data.add_command(label = 'Remove Alpha Source Image', 
-                                 command = lambda: File_Manager('Source', 0, 0))
-        __files_data.add_separator()
-        __files_data.add_command(label = 'Add Material File',
-                                 command = lambda: File_Manager('Material', 0, 1))
-        __files_data.add_command(label = 'Remove Material File',
-                                 command = lambda: File_Manager('Material', 0, 0))
-        
-            # Abre o html de Help
-        self.menu.add_command(label = 'Help', command = lambda: wng.Help())
+        __tabs_menu.add_command(label='Remove Current Tab', command=lambda: Tabs.tab_change(4))
 
-            # Abre o link para o Readme
-        self.menu.add_command(label = "About", command = lambda: webbrowser.open(
-            'https://github.com/AlexVnGit/GUI_thin_films/blob/master/README.md', new = 1))
-        
-                
+        # Data file management menu
+        __files_data = tk.Menu(self.menu, tearoff=False)
+        self.menu.add_cascade(label='Manage Data Files', menu=__files_data)
+        __files_data.add_command(label='Add Alpha Source File', command=lambda: File_Manager('Source', 1, 1))
+        __files_data.add_command(label='Remove Alpha Source File', command=lambda: File_Manager('Source', 1, 0))
+        __files_data.add_separator()
+        __files_data.add_command(label='Add Alpha Source Image', command=lambda: File_Manager('Source', 0, 1))
+        __files_data.add_command(label='Remove Alpha Source Image', command=lambda: File_Manager('Source', 0, 0))
+        __files_data.add_separator()
+        __files_data.add_command(label='Add Material File', command=lambda: File_Manager('Material', 0, 1))
+        __files_data.add_command(label='Remove Material File', command=lambda: File_Manager('Material', 0, 0))
+
+        # Help menu
+        self.menu.add_command(label='Help', command=lambda: warnings_manager.Help())
+
+        # About menu (opens README in browser)
+        self.menu.add_command(
+            label="About",
+            command=lambda: webbrowser.open(
+                'https://github.com/AlexVnGit/GUI_thin_films/blob/master/README.md', new=1
+            )
+        )
+
     def run(self):
-        #### O metodo que permite o programa manter-se aberto
+        """
+        Starts the Tkinter main event loop to keep the application running.
+        """
         self.main.mainloop()
 
-#############################################################################
-# A class dos avisos e popups. E facilmente reciclavel e versatil
-#############################################################################
+##############################################################################
+# Warnings: Versatile class for creating popups and dialogs in the ARC-TF    #
+# GUI. Handles warning messages, image displays, settings dialogs, and help  #
+##############################################################################
 class Warnings:
-    def popup(self, name):
+    """
+    Provides popup dialogs and utility windows for the ARC-TF GUI.
 
-        # A class cria poopups que tem que ser fechados antes de voltarem para o skeleton
-        # funciona bem para avisos, mas tambem para menus com opcoes obrigatorias de submeter
-        self.warning = tk.Toplevel(window.main)
+    Responsibilities:
+        - Display warning and information popups that must be closed before returning to the main window.
+        - Show decay chain images with optional source links.
+        - Present a settings dialog for adjusting general and algorithm-specific parameters.
+        - Display the help window with scrollable content.
+
+    Methods:
+        popup(name): Opens a modal popup window with the given title.
+        Images(name, picture, site): Shows a decay chain image and optional source link.
+        Settings(): Opens the settings dialog for energy units, thickness units, and algorithm parameters.
+        Help(): Opens a scrollable help window with content from the help file.
+
+    Notes:
+        - Uses self.warning, self.decay, self.configuration, and self.helping as Toplevel windows.
+        - Uses global window.main as the parent for all popups.
+        - Variable and method names are in English for clarity.
+        - Settings dialog supports applying changes to the current tab or all tabs.
+
+    Attributes:
+        warning (tk.Toplevel): Popup window for warnings and selection menus.
+        decay (tk.Toplevel): Popup window for displaying decay chain images.
+        configuration (tk.Toplevel): Popup window for settings dialog.
+        helping (tk.Toplevel): Popup window for help content.
+
+    Returns:
+        None
+    """
+    def popup(self, name):
+        # Create a modal popup window with the given title
+        self.warning = tk.Toplevel(main_window.main)
         self.warning.title(name)
         self.warning.geometry('700x300')
         self.warning.grab_set()
 
-    def Images(self, name, picture, site): # Para as imagens dos decaimentos
-
-        self.decay = tk.Toplevel(window.main)
+    def Images(self, name, picture, site):
+        # Display a decay chain image in a popup window, with optional source link
+        self.decay = tk.Toplevel(main_window.main)
         self.decay.title(name)
         self.decay.geometry('1000x600')
 
-        load = Image.open(picture)  
-        load_resize = load.resize((700,500))
+        load = Image.open(picture)
+        load_resize = load.resize((700, 500))
         img = ImageTk.PhotoImage(load_resize)
-        label = tk.Label(self.decay, image = img)
+        label = tk.Label(self.decay, image=img)
         label.image = img
         label.pack()
-        site_label = tk.Label(self.decay, text = 'From:  ' + site)
+        site_label = tk.Label(self.decay, text='From:  ' + site)
         site_label.pack()
 
     def Settings(self):
-
+        # Open the settings dialog for energy units, thickness units, and algorithm parameters
         num = Current_Tab()
 
-        self.configuration = tk.Toplevel(window.main)
+        self.configuration = tk.Toplevel(main_window.main)
         self.configuration.title('Settings')
         self.configuration.geometry('700x400')
         self.configuration.grab_set()
-        
+
         self.parameter = ttk.Notebook(self.configuration)
-        self.parameter.pack(expand = True, fill = 'both')
+        self.parameter.pack(expand=True, fill='both')
         self.parameter.enable_traversal()
         self.general_tab = tk.Frame(self.parameter)
         self.algorithm_tab = tk.Frame(self.parameter)
-        self.parameter.add(self.general_tab, text = 'General Settings')
-        self.parameter.add(self.algorithm_tab, text = 'Algorithm Settings')
+        self.parameter.add(self.general_tab, text='General Settings')
+        self.parameter.add(self.algorithm_tab, text='Algorithm Settings')
 
-        self.general_tab.columnconfigure(0, weight = 1)
-        self.general_tab.columnconfigure(1, weight = 1)
-        self.general_tab.columnconfigure(2, weight = 1)
+        self.general_tab.columnconfigure(0, weight=1)
+        self.general_tab.columnconfigure(1, weight=1)
+        self.general_tab.columnconfigure(2, weight=1)
 
-        self.algorithm_tab.columnconfigure(0, weight = 1)
-        self.algorithm_tab.columnconfigure(1, weight = 1)
-        self.algorithm_tab.columnconfigure(2, weight = 1)
-        self.algorithm_tab.columnconfigure(3, weight = 1)        
+        self.algorithm_tab.columnconfigure(0, weight=1)
+        self.algorithm_tab.columnconfigure(1, weight=1)
+        self.algorithm_tab.columnconfigure(2, weight=1)
+        self.algorithm_tab.columnconfigure(3, weight=1)
 
+        # Store current settings for cancel/restore
         self.energy_value = TabList[num][1].energy.get()
         self.unit_value = TabList[num][1].units.get()
         self.peak_interval = TabList[num][1].peaks_widths.get()
@@ -1971,142 +2023,145 @@ class Warnings:
         self.buttons_frame.pack()
 
         def close(choice):
-
+            # Handle closing the settings dialog and applying/cancelling changes
             num = Current_Tab()
-
             if choice == 0:
-                TabList[num][1].units.set(wng.unit_value)
-                TabList[num][1].energy.set(wng.energy_value)
-                TabList[num][1].peaks_widths.set(wng.peak_interval)
-                TabList[num][1].channels_cut.set(wng.cut_low_energy)
-                wng.configuration.destroy()
-
+                # Cancel and restore previous values
+                TabList[num][1].units.set(warnings_manager.unit_value)
+                TabList[num][1].energy.set(warnings_manager.energy_value)
+                TabList[num][1].peaks_widths.set(warnings_manager.peak_interval)
+                TabList[num][1].channels_cut.set(warnings_manager.cut_low_energy)
+                warnings_manager.configuration.destroy()
             elif choice == 1:
+                # Apply to current tab only
                 try:
-                    TabList[num][1].peaks_widths.set(wng.entry2.get())
-                    TabList[num][1].channels_cut.set(wng.entry1.get())
-
+                    TabList[num][1].peaks_widths.set(warnings_manager.entry2.get())
+                    TabList[num][1].channels_cut.set(warnings_manager.entry1.get())
                 except ValueError:
-                    TabList[num][1].peaks_widths.set(wng.peak_interval)
-                    TabList[num][1].channels_cut.set(wng.cut_low_energy)   
-
-                wng.configuration.destroy()
-
-            elif choice == 2:   
+                    TabList[num][1].peaks_widths.set(warnings_manager.peak_interval)
+                    TabList[num][1].channels_cut.set(warnings_manager.cut_low_energy)
+                warnings_manager.configuration.destroy()
+            elif choice == 2:
+                # Apply to all tabs and update global settings
                 try:
-                    TabList[num][1].peaks_widths.set(wng.entry2.get())
-                    TabList[num][1].channels_cut.set(wng.entry1.get())
-
+                    TabList[num][1].peaks_widths.set(warnings_manager.entry2.get())
+                    TabList[num][1].channels_cut.set(warnings_manager.entry1.get())
                 except ValueError:
-                    TabList[num][1].peaks_widths.set(wng.peak_interval)
-                    TabList[num][1].channels_cut.set(wng.cut_low_energy)    
-                    
+                    TabList[num][1].peaks_widths.set(warnings_manager.peak_interval)
+                    TabList[num][1].channels_cut.set(warnings_manager.cut_low_energy)
                 Energy_settings.set(TabList[num][1].energy.get())
                 Unit_settings.set(TabList[num][1].units.get())
-
                 Channel_cut.set(TabList[num][1].channels_cut.get())
-                Peak_Width.set(TabList[num][1].peaks_widths.get())                
+                Peak_Width.set(TabList[num][1].peaks_widths.get())
+                warnings_manager.configuration.destroy()
 
-                wng.configuration.destroy()
+        # General settings UI
+        tk.Label(self.general_tab, text=' ').grid(row=0, column=0, pady=10, padx=10)
+        tk.Label(self.general_tab, text='Specify Energy Units').grid(row=1, column=0, pady=10, padx=10)
+        tk.Label(self.general_tab, text='Specify Thickness Units').grid(row=1, column=2, pady=10, padx=10)
+        tk.Radiobutton(self.general_tab, text='kev', variable=TabList[num][1].energy, value=1).grid(row=2, column=0)
+        tk.Radiobutton(self.general_tab, text='Mev', variable=TabList[num][1].energy, value=1000).grid(row=3, column=0)
+        tk.Radiobutton(self.general_tab, text='nm', variable=TabList[num][1].units, value=10.0**9).grid(row=2, column=2)
+        tk.Radiobutton(self.general_tab, text='\u03bcm', variable=TabList[num][1].units, value=10.0**6).grid(row=3, column=2)
+        tk.Radiobutton(self.general_tab, text='\u03bcg cm\u207B\u00B2', variable=TabList[num][1].units, value=0.0).grid(row=4, column=2)
+        tk.Radiobutton(self.general_tab, text='10\u00b9\u2075 Atoms cm\u207B\u00b3', variable=TabList[num][1].units, value=-1.0).grid(row=5, column=2)
 
-        ################################################ 
-
-        tk.Label(self.general_tab, text = ' ').grid(row = 0, 
-                                                                       column = 0, pady = 10, padx = 10)
-        tk.Label(self.general_tab, text = 'Specify Energy Units').grid(row = 1, 
-                                                                       column = 0, pady = 10, padx = 10)
-        tk.Label(self.general_tab, 
-                 text = 'Specify Thickness Units').grid(row = 1, column = 2, pady = 10, padx = 10)
-
-        tk.Radiobutton(self.general_tab, text = 'kev', 
-                       variable = TabList[num][1].energy, value = 1).grid(row = 2, column = 0)
-        tk.Radiobutton(self.general_tab, text = 'Mev', 
-                       variable = TabList[num][1].energy, value = 1000).grid(row = 3, column = 0)
-        
-        tk.Radiobutton(self.general_tab, text = 'nm', 
-                       variable= TabList[num][1].units, value = 10.0**9).grid(row = 2, column = 2)
-        tk.Radiobutton(self.general_tab, text = '\u03bcm', 
-                       variable= TabList[num][1].units, value = 10.0**6).grid(row = 3, column = 2)
-        tk.Radiobutton(self.general_tab, text = '\u03bcg' + ' cm' + '{}'.format('\u207B' + '\u00b2'), 
-                       variable= TabList[num][1].units, value = 0.0).grid(row = 4, column = 2)
-        tk.Radiobutton(self.general_tab, text = '10' + '{}'.format('\u00b9' + '\u2075') + ' Atoms' +
-                       ' cm' + '{}'.format('\u207B' + '\u00b3'), 
-                       variable= TabList[num][1].units, value = -1.0).grid(row = 5, column = 2)
-        
-        ########################################################################################
-
-        tk.Label(self.algorithm_tab, text = 'Threshold Input Algorithm Settings').grid(
-            row = 0, columnspan = 3, pady = 10)
-        tk.Label(self.algorithm_tab, text = 'Low Energy Cut: ').grid(
-            row = 1, column = 1, pady = 10)
+        # Algorithm settings UI
+        tk.Label(self.algorithm_tab, text='Threshold Input Algorithm Settings').grid(row=0, columnspan=3, pady=10)
+        tk.Label(self.algorithm_tab, text='Low Energy Cut: ').grid(row=1, column=1, pady=10)
         self.entry1 = tk.Entry(self.algorithm_tab)
-        self.entry1.grid(row = 1, column = 2, pady = 10)
+        self.entry1.grid(row=1, column=2, pady=10)
         self.entry1.insert(0, TabList[num][1].channels_cut.get())
-        tk.Label(self.algorithm_tab, text = 'Approximate width of peaks: ').grid(
-            row = 2, column = 1, pady = 10)
+        tk.Label(self.algorithm_tab, text='Approximate width of peaks: ').grid(row=2, column=1, pady=10)
         self.entry2 = tk.Entry(self.algorithm_tab)
-        self.entry2.grid(row = 2, column = 2, pady = 10)
+        self.entry2.grid(row=2, column=2, pady=10)
         self.entry2.insert(0, TabList[num][1].peaks_widths.get())
 
-        ########################################################################################
-
-        tk.Button(self.buttons_frame, text = 'Cancel and Return', command = lambda: 
-                  close(0)).grid(row = 1, column = 2, padx = 5, pady = 5)
-        tk.Button(self.buttons_frame, text = 'Apply to current Tab', command = lambda: 
-                  close(1)).grid(row = 1, column = 0, padx = 5, pady = 5)
-        tk.Button(self.buttons_frame, text = 'Apply to all Tabs', command = lambda: 
-                  close(2)).grid(row = 1, column = 1, padx = 5, pady = 5)
+        # Buttons for applying/cancelling settings
+        tk.Button(self.buttons_frame, text='Cancel and Return', command=lambda: close(0)).grid(row=1, column=2, padx=5, pady=5)
+        tk.Button(self.buttons_frame, text='Apply to current Tab', command=lambda: close(1)).grid(row=1, column=0, padx=5, pady=5)
+        tk.Button(self.buttons_frame, text='Apply to all Tabs', command=lambda: close(2)).grid(row=1, column=1, padx=5, pady=5)
 
     def Help(self):
-
+        # Open the help window with scrollable content from the help file
         try:
-            wng.helping.destroy()
-
+            warnings_manager.helping.destroy()
         except:
             pass
 
-        with open('Files\Help.txt', 'r') as OpenFile: # Abre (e fecha) o documento
-            lines = OpenFile.read() # Le os dados como string
+        with open('Files\\Help.txt', 'r') as OpenFile:
+            lines = OpenFile.read()
 
-        self.helping = tk.Toplevel(window.main)
+        self.helping = tk.Toplevel(main_window.main)
         self.helping.title('Help')
-        self.helping.resizable(0,0)
+        self.helping.resizable(0, 0)
         self.frame = tk.Frame(self.helping)
-        self.frame.pack(expand= True, fill= 'both')
+        self.frame.pack(expand=True, fill='both')
         self.canvas = tk.Canvas(self.frame)
         self.frame2 = tk.Frame(self.canvas)
         self.scrollbar = tk.Scrollbar(self.frame)
-        self.canvas.config(yscrollcommand = self.scrollbar.set, highlightthickness = 0 )
-        self.scrollbar.config(orient = tk.VERTICAL, command = self.canvas.yview)
-        self.canvas.grid(row = 1, column = 0)
-        self.scrollbar.grid(row = 1, column = 2, sticky = 'ns')
-        self.scrollbar.place
-        self.canvas.create_window(0, 0, window = self.frame2, anchor = tk.NW)
-        self.frame2.bind('<Configure>', 
-                              lambda e: self.canvas.configure(
-                                  scrollregion = self.canvas.bbox('all'), width = e.width))
-        
-        menu = tk.Label(self.frame2, text = lines).grid()
-        
-############################################################################
-# A class das Tabs. Inclui a estrutura propria do Notebook - widget de 
-# separadores; as tabs dos resultados e de adicionar tabs; e a estrutura que
-# muda a forma de tabs de calibracao e materiais
-############################################################################
-class Tabs:
+        self.canvas.config(yscrollcommand=self.scrollbar.set, highlightthickness=0)
+        self.scrollbar.config(orient=tk.VERTICAL, command=self.canvas.yview)
+        self.canvas.grid(row=1, column=0)
+        self.scrollbar.grid(row=1, column=2, sticky='ns')
+        self.canvas.create_window(0, 0, window=self.frame2, anchor=tk.NW)
+        self.frame2.bind('<Configure>', lambda e: self.canvas.configure(
+            scrollregion=self.canvas.bbox('all'), width=e.width))
 
-    Counter_Mat = 0
-    Counter_Calib = 0
+        tk.Label(self.frame2, text=lines).grid()
+
+#############################################################################
+# Manages the tabbed interface (Notebook) for ARC-TF, including             #
+# creation, configuration, and management of calibration and material tabs. #
+# Handles the layout and variable setup for each tab, as well as tab events.#
+#############################################################################
+class Tabs:
+    """
+    Manages the tabbed interface (Notebook) for the ARC-TF GUI.
+
+    Responsibilities:
+        - Creates and configures the main Notebook widget for tabbed navigation.
+        - Sets up the initial "Final Results" and "+" (add tab) tabs.
+        - Handles creation and layout of calibration and material analysis tabs.
+        - Manages tab-specific frames (graphics, data, source, algorithm, results, etc.).
+        - Initializes and tracks all variables needed for each tab (e.g., algorithm settings, ROI, regression, etc.).
+        - Handles tab events (adding, removing, renaming, switching).
+        - Provides static methods for tab management and renaming.
+
+    Notes:
+        - Uses both English and Portuguese variable names for legacy and clarity.
+        - Some variable names (e.g., value, index) could be more descriptive.
+        - Some code repetition exists in tab creation (could be refactored for DRY).
+        - All tab-specific variables are initialized per tab instance for isolation.
+        - Comments clarify the structure and intent of each section.
+
+    Attributes:
+        material_tab_counter (int): Counter for material tabs.
+        calibration_tab_counter (int): Counter for calibration tabs.
+        notebook (ttk.Notebook): The main tabbed widget.
+        value (int): Tracks the number of tabs.
+        [Many per-tab attributes for frames, variables, and controls.]
+
+    Methods:
+        First_Tabs(): Initializes the main Notebook and result frames.
+        AnalysisTab(choice): Sets up a calibration or material analysis tab.
+        tab_change(num): Static method to add/remove/switch tabs.
+        RenameTab(name): Static method to rename a tab.
+
+    Returns:
+        None
+    """
+    material_tab_counter = 0
+    calibration_tab_counter = 0
 
     def First_Tabs(self):
 
-        ####### A variavel do Notebook ##########
-        self.notebook = ttk.Notebook(window.main)   
-        self.notebook.pack(expand = True, fill = 'both') # Expande a frame da tab ate ao final
-                                                         # da janela
-        self.notebook.enable_traversal() # Permite o uso de Ctrl+Tab para circular entre tabs
+        # Create the main Notebook widget for tab navigation
+        self.notebook = ttk.Notebook(main_window.main)   
+        self.notebook.pack(expand = True, fill = 'both') # Expand the notebook to fill the window
+        self.notebook.enable_traversal() # Enable Ctrl+Tab navigation
         
-        ########### As frames principais - Os resultados e a frame de adicionar
+        # Main frames: results and add-tab frame
         self.CRFrame = tk.Frame(self.notebook, bg = 'dark grey')
         self.PlusFrame = tk.Frame(self.notebook, bg = 'dark grey')
         self.CRFrame.columnconfigure(0, weight = 3)
@@ -2114,11 +2169,11 @@ class Tabs:
         self.CRFrame.rowconfigure(0, weight = 3)
         self.CRFrame.rowconfigure(1, weight = 3)
 
-        ############# Aqui adicionam-se as frames iniciadas acima
+        # Add the main frames to the notebook
         self.notebook.add(self.CRFrame, text = 'Final Results')
         self.notebook.add(self.PlusFrame, text = '+')
         
-        ############# Frames onde irao ser inseridos os resultados finais e scrollbars
+        # Frames for displaying final results and scrollbars
         self.Calib_Result = tk.Frame(self.CRFrame, borderwidth = 5, relief = 'ridge')
         self.Calib_Result.grid(row = 0, column = 0, pady = 10, padx = 30, sticky = 'nw', rowspan = 2)
         self.Calib_Result.columnconfigure(0, weight = 3)
@@ -2166,30 +2221,30 @@ class Tabs:
                               lambda e: self.mat_canvas.configure(
                                   scrollregion = self.mat_canvas.bbox('all'), width = e.width)) 
         
-        ########### Variavel para contar o numero de separadores 
+        # Variable to count the number of analysis tabs
         self.value = 0
 
-        ############ Este comando adiciona o evento a funcao, para adicionar frames
+        # Bind the tab change event to handle adding new tabs
         self.notebook.bind("<<NotebookTabChanged>>", handleTabChange)      
 
-    def AnalysisTab(self, choice):
+    def AnalysisTab(self, tab_kind):
 
         ### Configuracao de geometria e Frames comuns a Calib e Material Tabs  ####
-        TabList[Notebook.value][0].columnconfigure(0, weight = 4)
-        TabList[Notebook.value][0].columnconfigure(1, weight = 1)
-        TabList[Notebook.value][0].rowconfigure(0, weight = 1)
-        TabList[Notebook.value][0].rowconfigure(1, weight = 1)
+        TabList[tab_manager.value][0].columnconfigure(0, weight = 4)
+        TabList[tab_manager.value][0].columnconfigure(1, weight = 1)
+        TabList[tab_manager.value][0].rowconfigure(0, weight = 1)
+        TabList[tab_manager.value][0].rowconfigure(1, weight = 1)
 
-        self.GraphicFrame = tk.Frame(TabList[Notebook.value][0], borderwidth = 5, relief = 'ridge')
+        self.GraphicFrame = tk.Frame(TabList[tab_manager.value][0], borderwidth = 5, relief = 'ridge')
         self.GraphicFrame.grid(column = 0, row = 0, sticky = "nw", pady = 5, columnspan = 2)
 
-        self.DataFrame = tk.Frame(TabList[Notebook.value][0], borderwidth = 5, relief = 'ridge')
+        self.DataFrame = tk.Frame(TabList[tab_manager.value][0], borderwidth = 5, relief = 'ridge')
         self.DataFrame.grid(column = 2, row = 0, sticky = "ne", pady = 5)
 
-        self.SourceFrame = tk.Frame(TabList[Notebook.value][0], borderwidth = 5, relief = 'ridge')
+        self.SourceFrame = tk.Frame(TabList[tab_manager.value][0], borderwidth = 5, relief = 'ridge')
         self.SourceFrame.grid(column = 1, row = 0, sticky = "ne", pady = 5)
 
-        self.Extra_Frame = tk.Frame(TabList[Notebook.value][0], borderwidth = 5, relief = 'ridge')
+        self.Extra_Frame = tk.Frame(TabList[tab_manager.value][0], borderwidth = 5, relief = 'ridge')
 
         self.AlgFrame = tk.Frame(self.DataFrame, borderwidth = 0)
         self.AlgFrame.grid(row = 2, columnspan = 2, pady = 5)
@@ -2282,8 +2337,7 @@ class Tabs:
         self.Var_Data = [
             self.variable1, self.variable2, self.variable3, self.variable4, self.variable5,
             self.variable6, self.variable7, self.variable8, self.variable9, self.variable10,
-            self.variable11, self.variable12, self.variable13, self.variable14, self.variable15
-        ]
+            self.variable11, self.variable12, self.variable13, self.variable14, self.variable15]
     
         tk.Label(self.DataFrame, text = 'Analysis Method Selected: ').grid(row = 0, columnspan = 2)
         Algs = ["Manual Selection", "Threshold Input", "ROI Select"]
@@ -2371,72 +2425,75 @@ class Tabs:
             self.SourceOptionsFrame.grid(row = 2, columnspan = 2)
             self.LinearRegressionFrame = tk.Frame(self.SourceFrame, borderwidth = 1)
             
-        if choice == 1:
+        if tab_kind == 1:
             CalibTab(self)
             
-        elif choice == 2:
+        elif tab_kind == 2:
             MatTab(self)
 
     @staticmethod
     def tab_change(num):
-
+        """
+        Handles adding, removing, and switching tabs in the Notebook.
+        tab_type: 1 = add calibration, 2 = add material, 3 = cancel, 4 = remove current
+        """
         value = Current_Tab()
-        index = len(Notebook.notebook.tabs()) - 1             
+        index = len(tab_manager.notebook.tabs()) - 1             
 
         if num == 1:
-            Tabs.Counter_Calib -= 1
-            Data = "Temp\Data" + str(Tabs.Counter_Calib) + ".txt"
-            Analysis = "Temp\Analysis" + str(Tabs.Counter_Calib) + ".txt"
-            Result =  "Temp\Result" + str(Tabs.Counter_Calib) + ".txt"
-            ROIs = "Temp\ROIs" + str(Tabs.Counter_Calib) + ".txt"
-            TabList.append([tk.Frame(Notebook.notebook, bg = 'dark grey'), Tabs(),  Data,
+            Tabs.calibration_tab_counter -= 1
+            Data = "Temp\Data" + str(Tabs.calibration_tab_counter) + ".txt"
+            Analysis = "Temp\Analysis" + str(Tabs.calibration_tab_counter) + ".txt"
+            Result =  "Temp\Result" + str(Tabs.calibration_tab_counter) + ".txt"
+            ROIs = "Temp\ROIs" + str(Tabs.calibration_tab_counter) + ".txt"
+            TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
 
-            TabTracker.append(Tabs.Counter_Calib)
-            TabList[Notebook.value][1].AnalysisTab(1)
-            Notebook.notebook.insert(index, TabList[Notebook.value][0], 
-                                     text = "Calibration Trial " + str(-Tabs.Counter_Calib))
-            Notebook.notebook.select(index)
-            Notebook.value += 1
+            TabTracker.append(Tabs.calibration_tab_counter)
+            TabList[tab_manager.value][1].AnalysisTab(1)
+            tab_manager.notebook.insert(index, TabList[tab_manager.value][0], 
+                                     text = "Calibration Trial " + str(-Tabs.calibration_tab_counter))
+            tab_manager.notebook.select(index)
+            tab_manager.value += 1
             try:
-                wng.warning.destroy()
+                warnings_manager.warning.destroy()
             except:
                 ()
 
         elif num == 2:
-            Tabs.Counter_Mat += 1
-            Data = "Temp\Data" + str(Tabs.Counter_Mat) + ".txt"
-            Analysis = "Temp\Analysis" + str(Tabs.Counter_Mat) + ".txt"
-            Result =  "Temp\Result" + str(Tabs.Counter_Mat) + ".txt"
-            ROIs = "Temp\ROIs" + str(Tabs.Counter_Mat) + ".txt"
-            TabList.append([tk.Frame(Notebook.notebook, bg = 'dark grey'), Tabs(),  Data,
+            Tabs.material_tab_counter += 1
+            Data = "Temp\Data" + str(Tabs.material_tab_counter) + ".txt"
+            Analysis = "Temp\Analysis" + str(Tabs.material_tab_counter) + ".txt"
+            Result =  "Temp\Result" + str(Tabs.material_tab_counter) + ".txt"
+            ROIs = "Temp\ROIs" + str(Tabs.material_tab_counter) + ".txt"
+            TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
 
-            TabTracker.append(Tabs.Counter_Mat)
-            TabList[Notebook.value][1].AnalysisTab(2)
-            Notebook.notebook.insert(index, TabList[Notebook.value][0], 
-                                     text = "Material Trial " + str(Tabs.Counter_Mat))
-            Notebook.notebook.select(index)
-            Notebook.value += 1
+            TabTracker.append(Tabs.material_tab_counter)
+            TabList[tab_manager.value][1].AnalysisTab(2)
+            tab_manager.notebook.insert(index, TabList[tab_manager.value][0], 
+                                     text = "Material Trial " + str(Tabs.material_tab_counter))
+            tab_manager.notebook.select(index)
+            tab_manager.value += 1
             try:
-                wng.warning.destroy()
+                warnings_manager.warning.destroy()
             except:
                 ()
         
         elif num == 3:
-            Notebook.notebook.select(index - 1)
-            wng.warning.destroy()
+            tab_manager.notebook.select(index - 1)
+            warnings_manager.warning.destroy()
 
         elif num == 4:
-            if Notebook.notebook.select() == '.!notebook.!frame' or Notebook.notebook.select() == '.!notebook.!frame2':
-                wng.popup('Bad Tab Deletion')
-                tk.Label(wng.warning, text = '\n This Tab cannot be deleted.\nPlease delete Analysis Tabs').pack()
-                tk.Label(wng.warning, text = '\n\n').pack()
-                tk.Button(wng.warning, text = 'Return', command = lambda: wng.warning.destroy()).pack()
+            if tab_manager.notebook.select() == '.!notebook.!frame' or tab_manager.notebook.select() == '.!notebook.!frame2':
+                warnings_manager.popup('Bad Tab Deletion')
+                tk.Label(warnings_manager.warning, text = '\n This Tab cannot be deleted.\nPlease delete Analysis Tabs').pack()
+                tk.Label(warnings_manager.warning, text = '\n\n').pack()
+                tk.Button(warnings_manager.warning, text = 'Return', command = lambda: warnings_manager.warning.destroy()).pack()
 
             else:
-                Notebook.notebook.forget("current")
-                Notebook.notebook.select(index - 2)
+                tab_manager.notebook.forget("current")
+                tab_manager.notebook.select(index - 2)
 
                 if os.path.isfile(TabList[value][2]) == True:
                     os.remove(TabList[value][2])
@@ -2447,7 +2504,7 @@ class Tabs:
 
                 TabList.pop(value)
 
-                Notebook.value -= 1
+                tab_manager.value -= 1
                 TabTracker.pop(value)
                 ClearWidget('Final', 0)
                 Final_Results(0)
@@ -2455,148 +2512,184 @@ class Tabs:
     def RenameTab(name):
 
         tab_num = Current_Tab()
-        Notebook.notebook.tab(tab_num+1, text = str(name))
+        tab_manager.notebook.tab(tab_num+1, text = str(name))
 
         return
-
-
-       
+   
 ###########################################################################
-# Esta classe recebe os dados dos ficheiros externos
-# e insere os graficos na frame grande do GUI.
-# Ao mesmo tempo cria um txt para outras funções
-# acederem aos dados
-# Se estiver selecionado o threshold input, mostra uma linha do valor
-############################################################################
+# Handles data loading, plotting, and graphical updates for ARC-TF.       #
+# This class reads external data files, inserts plots into the main GUI   #
+# frame, and manages plot overlays (e.g., threshold lines).               #
+###########################################################################
 class Plot:
+    """
+    Handles data loading, plotting, and graphical updates for the ARC-TF GUI.
 
+    Responsibilities:
+        - Reads data from external files and prepares it for plotting.
+        - Inserts the plot into the main graphic frame of the GUI.
+        - Creates a temporary text file for other functions to access the data.
+        - Displays a threshold line if the threshold input algorithm is selected.
+        - Provides methods to update, clear, or overlay lines on the plot.
+
+    Methods:
+        Structure(File, Name): Loads data from file, processes channels and counts, updates GUI.
+        subplots(): Plots the data (channels vs. counts) and sets up axes and event handlers.
+        destroyer(): Removes the last overlay line from the plot (e.g., threshold line).
+        threshold(height): Draws a horizontal threshold line at the specified height.
+
+    Notes:
+        - Uses matplotlib for plotting and FigureCanvasTkAgg for embedding in Tkinter.
+        - Variable names are now in English for clarity.
+        - Comments explain each step of the plotting and data handling process.
+        - No unnecessary code detected; logic is clear and concise.
+
+    Attributes:
+        Channel (list): List of channel indices (x-axis).
+        Counts (list): List of count values (y-axis).
+        line (list): List of overlay lines (e.g., threshold lines).
+        Title (str): Title for the plot, set based on tab type.
+        figure (Figure): Matplotlib Figure object for the plot.
+        figure_canvas (FigureCanvasTkAgg): Canvas for embedding the plot in Tkinter.
+        axes (Axes): Matplotlib Axes object for plotting.
+    """
     def Structure(self, File, Name):
-
-        self.Channel = []    #Lista vazia para guardar o Channel
-        self.Counts = []     #Lista vazia para guardar os Counts
+        # Initialize lists for channel and counts
+        self.Channel = []
+        self.Counts = []
         self.line = []
 
         num = Current_Tab()
         total_sum = 0
         j = 0
 
+        # Clear previous plot and set up the graphic frame
         ClearWidget('Graphic', 0)
-        TabList[num][1].GraphicFrame.grid(column = 0, row = 0, sticky = "nw", pady = 5, columnspan = 2)
+        TabList[num][1].GraphicFrame.grid(column=0, row=0, sticky="nw", pady=5, columnspan=2)
 
+        # Open the data file for writing processed counts
         Data = open(TabList[num][2], "w")
 
-        if Name[-4:] == ".mca":         #Por enquanto esta configurado para os ficheiros 
-                                        # da maquina para AEL. Se for configurado RBS
-                                        #ha-de-se incluir outro if.
-            for i in range(12, len(File) - 1):         #### FOI ALTERADO POR CAUSA DA ROI NOS FICHEIROS !!!!!!
+        # If the file is an .mca file, process accordingly (specific to AEL machine format)
+        if Name[-4:] == ".mca":
+            for i in range(12, len(File) - 1):
                 self.Counts.append(int(File[i]))
-                total_sum = total_sum + self.Counts[j]
-                self.Channel.append(i-11)               #### FOI ALTERADO POR CAUSA DA ROI NOS FICHEIROS !!!!!!
-                Data.write(str(self.Counts[i-12])+"\n") #### FOI ALTERADO POR CAUSA DA ROI NOS FICHEIROS !!!!!!
+                total_sum += self.Counts[j]
+                self.Channel.append(i - 11)
+                Data.write(str(self.Counts[i - 12]) + "\n")
                 j += 1
-
-            # Ciclo for para adquirir os valores dos dados
 
         Data.close()
 
+        # Update total counts and display in the extra frame
         TabList[num][1].Total_Counts.set(total_sum)
-        TabList[num][1].Extra_Frame.grid(column = 0, row = 1, sticky = "nw")
-        tk.Label(TabList[num][1].Extra_Frame, text = TabList[num][1].Real_Time.get()).grid(row = 0)
-        tk.Label(TabList[num][1].Extra_Frame, text = 'Total Sum of Counts is: ' + 
-                 str(TabList[num][1].Total_Counts.get())).grid(row = 1)
+        TabList[num][1].Extra_Frame.grid(column=0, row=1, sticky="nw")
+        tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0)
+        tk.Label(TabList[num][1].Extra_Frame, text='Total Sum of Counts is: ' +
+                 str(TabList[num][1].Total_Counts.get())).grid(row=1)
 
+        # Set plot title based on tab type
         if TabTracker[num] < 0:
             self.Title = 'Calibration Trial ' + str(-TabTracker[num])
-
-        elif TabTracker[num] > 0: 
+        elif TabTracker[num] > 0:
             self.Title = 'Material Trial ' + str(TabTracker[num])
 
-
-        self.figure = Figure(figsize = (6,4), dpi = 100) #A figura contem o grafico
-        self.figure_canvas = FigureCanvasTkAgg(self.figure, TabList[num][1].GraphicFrame) #A class FigureCanvasTkAgg
-        #liga o matplotlib ao tkinter
-
-        NavigationToolbar2Tk(self.figure_canvas, TabList[num][1].GraphicFrame) # Esta linha permite que as ferramentas
-        #do matplotlip aparecam na interface do tkinter
+        # Create the matplotlib figure and embed it in the Tkinter frame
+        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.figure_canvas = FigureCanvasTkAgg(self.figure, TabList[num][1].GraphicFrame)
+        NavigationToolbar2Tk(self.figure_canvas, TabList[num][1].GraphicFrame)
 
     def subplots(self):
-        #Aqui inicia-se o grafico com os dados e os eixos
-
-        self.axes = self.figure.add_subplot() 
-        self.axes.plot(self.Channel, self.Counts, '.', markersize = 7, label = 'Run')
+        # Create the plot with channels on x-axis and counts on y-axis
+        self.axes = self.figure.add_subplot()
+        self.axes.plot(self.Channel, self.Counts, '.', markersize=7, label='Run')
         self.axes.set_title(self.Title)
         self.axes.set_xlabel('Channel')
         self.axes.set_ylabel('Counts')
 
+        # Connect mouse click event for manual selection
         self.figure.canvas.mpl_connect('button_press_event', onclick)
 
-        #Por fim, acrescenta-se a geometria do tkinter
+        # Pack the plot widget into the Tkinter frame
         self.figure_canvas.get_tk_widget().pack()
 
     def destroyer(self):
-
+        # Remove the last overlay line (e.g., threshold line) from the plot
         if self.line:
             self.line.pop().remove()
             self.figure_canvas.draw()
 
     def threshold(self, height):
-
+        # Draw a horizontal threshold line at the specified height
         if self.line:
             self.line.pop().remove()
-
-        self.line.append(self.axes.axhline(y = height, color = 'r', linestyle = '-'))
+        self.line.append(self.axes.axhline(y=height, color='r', linestyle='-'))
         self.figure_canvas.draw()
 
 ############################################################################
-Dir = os.scandir('Files\Sources\Values')
+# Initialize source and material lists by scanning the relevant directories #
+############################################################################
+
+# Scan the directory for alpha source value files and populate source_list
+source_values_dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
 source_list = []
-for entry in Dir:
+for entry in source_values_dir:
     if entry.is_file():
-        temp = (os.path.splitext(entry.name))
-        source_list.append(temp[0])
+        name, _ = os.path.splitext(entry.name)
+        source_list.append(name)
 
-Dir = os.scandir('Files\Materials')
+# Scan the directory for material files and populate materials_list
+materials_dir = os.scandir(os.path.join('Files', 'Materials'))
 materials_list = []
-for entry in Dir:
+for entry in materials_dir:
     if entry.is_file():
-        temp = (os.path.splitext(entry.name))
-        materials_list.append(temp[0])
+        name, _ = os.path.splitext(entry.name)
+        materials_list.append(name)
 
-############ Variaveis Estruturais #############################
-wng = Warnings()
-window = Skeleton()
-Notebook = Tabs()
-Notebook.First_Tabs()
+############################################################################
+# Initialize main application components and global variables               #
+############################################################################
 
-############## Tabs variaveis para serem criadas ###############
+# Instantiate main utility classes
+warnings_manager = Warnings()
+main_window = Skeleton()
+tab_manager = Tabs()
+tab_manager.First_Tabs()
+
+# Lists to keep track of tab objects and their types (calibration/material)
 TabList = []
 TabTracker = []
 
-Energy_settings = tk.IntVar()
-Energy_settings.set(1000)
-Unit_settings = tk.DoubleVar()
-Unit_settings.set((10**9))
+# Global settings for energy, units, channel cut, and peak width
+Energy_settings = tk.IntVar(value=1000)
+Unit_settings = tk.DoubleVar(value=1e9)
+Channel_cut = tk.IntVar(value=100)
+Peak_Width = tk.IntVar(value=35)
 
-Channel_cut = tk.IntVar()
-Channel_cut.set(100)
+############################################################################
+# Start the application: create the first calibration tab and run the GUI   #
+############################################################################
 
-Peak_Width = tk.IntVar()
-Peak_Width.set(35)
+Tabs.tab_change(1)  # Add initial calibration tab
+tab_manager.notebook.select(1)  # Select the first analysis tab
 
-#############################################################################################
-Tabs.tab_change(1)
-Notebook.notebook.select(1)
+# Create a temporary directory for storing intermediate files
+if not os.path.exists('Temp'):
+    os.mkdir('Temp')
 
-os.mkdir('Temp') # Pasta onde serao guardados os ficheiros temporarios
-window.run()
-##############################################################################################
+main_window.run()  # Start the Tkinter main event loop
 
-for i in range(Notebook.value):
-    if os.path.isfile(TabList[i][2]) == True:
-        os.remove(TabList[i][2]) # Apaga os dados adquiridos quando se faz plot
-    if os.path.isfile(TabList[i][3]) == True:
-        os.remove(TabList[i][3]) # Apaga os dados dos resultados dos algoritmos
-    if os.path.isfile(TabList[i][4]) == True:
-        os.remove(TabList[i][4]) # Apaga os resultados das regressoes lineares
+############################################################################
+# Cleanup: Remove temporary files and directory after the application exits #
+############################################################################
 
-os.rmdir('Temp') # Apaga a pasta Temp
+# Remove all temporary files created for each tab
+for i in range(tab_manager.value):
+    for file_index in [2, 3, 4]:  # Data, Algorithm Results, Regression Results
+        temp_file = TabList[i][file_index]
+        if os.path.isfile(temp_file):
+            os.remove(temp_file)
+
+# Remove the temporary directory if it exists
+if os.path.isdir('Temp'):
+    os.rmdir('Temp')

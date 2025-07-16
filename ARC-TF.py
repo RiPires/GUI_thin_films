@@ -1,18 +1,30 @@
-####################################################################################################
-##                                                                                                ##       
-## ARC-TF stands for Alpha particles' energy loss and Rutherford backscattering                   ##
-## spectrometry methods for Characterization of Thin Films.                                       ##
-##                                                                                                ##
-## ARC-TF is a GUI (Guided User Interface) intended to expedite the process of                    ##
-## characterizing thin films, via an interface with ease of use, and backend                      ##
-## algorithms that accelerate the data analysis.                                                  ##
-##                                                                                                ##
-## This project is the result of a LIP Summer Internship, within the NUC-RIA group.               ##
-## A publication resulting from the internship, resuming the work taken to develop                ##
-## the first version of ARC-TF, can be searched for by the reference LIP-STUDENTS-23-15.          ##
-## Directly available at https://www.lip.pt/files/training/papers/2023/pdf/2023-PAPER-179-15.pdf  ##
-##                                                                                                ## 
-####################################################################################################
+##########################################################################################################
+##                                                                                                      ##
+## ARC-TF stands for Alpha particles' energy loss and Rutherford backscattering                         ##
+## spectrometry methods for Characterization of Thin Films.                                             ##
+##                                                                                                      ##
+## ARC-TF is a Python based GUI (Guided User Interface) intended to expedite the process of             ##
+## characterizing thin films, via an interface with ease of use, and backend algorithms that            ##
+## accelerate the data analysis.                                                                        ##
+##                                                                                                      ##
+## This project is the result of a LIP Summer Internship, within the NUC-RIA group.                     ##
+## A publication resulting from the internship, resuming the work taken to develop                      ##
+## the first version of ARC-TF, can be searched for by the reference LIP-STUDENTS-23-15.                ##
+## Directly available at https://www.lip.pt/files/training/papers/2023/pdf/2023-PAPER-179-15.pdf.       ##
+##                                                                                                      ##
+## Authors: Alexandre Gusmão (1),           alex_vng@hotmail.com,   https://github.com/AlexVnGit        ##
+##          Ricardo Matoza Pires (1,2),     rpires@lip.pt,          https://github.com/RiPires          ##
+##          Tomás Campante Tavares (1,2),   tmctavares@lip.pt,      https://github.com/TomasCampante    ##
+##                                                                                                      ##
+##  (1) Faculty of Sciences of the Universty of Lisbon (FCUL),                                          ##
+##      Rua Ernesto de Vasconcelos, 1749-016 Lisboa, Portugal,                                          ##
+##      Building C8, 5th floor, room 8.5.15                                                             ##
+##                                                                                                      ##
+##  (2) Laboratory of Instrumentation and Experimental Particle Physics (LIP)                           ##
+##      NUC-RIA group (Nuclear Reactions, Instrumentation and Astrophysics)                             ##
+##      Av. Prof. Gama Pinto, 2, 1649-003 Lisboa, Portugal                                              ##
+##                                                                                                      ##
+##########################################################################################################
 
 ## ------------------------------- Import necessary librarires ---------------------------------- ##
 import tkinter as tk
@@ -39,11 +51,12 @@ from Include.Eloss import*
 from Include.Thick import*
 from Include.remove_file import*
 from Include.clear_frame import*
+## ---------------------------------------------------------------------------------------------- ##
 
-###############################################
-# Handles display scaling                     #
-# works on Windows 10/11 and Linux/Kubuntu    #
-###############################################
+#####################################################
+# Handles display scaling                           #
+# works on Windows 10/11 and Linux/Kubuntu 20.04    #
+#####################################################
 
 # Adjust DPI awareness on Windows only
 if sys.platform == "win32":
@@ -52,9 +65,9 @@ if sys.platform == "win32":
     except Exception as e:
         print(f"Warning: DPI awareness setting failed: {e}")
 
-###########################################################
-# Returns the index of the Tab the user is on
-###########################################################
+################################################
+# Returns the index of the Tab the user is on  #
+################################################
 def Current_Tab():
     """
     Returns the ID of the tab where the user is on,
@@ -69,10 +82,10 @@ def Current_Tab():
     else:
         return tabID
   
-#########################################################################################
-# Clears and resets specific UI frames and associated data files depending on the 
-# type of frame specified.
-#########################################################################################
+#####################################################################
+# Clears and resets specific UI frames and associated data files    #
+# depending on the type of frame specified                          #
+#####################################################################
 def ClearWidget(Frame, parameter):
     """
      Function: ClearWidget
@@ -2636,9 +2649,9 @@ class Plot:
         self.line.append(self.axes.axhline(y=height, color='r', linestyle='-'))
         self.figure_canvas.draw()
 
-############################################################################
+#############################################################################
 # Initialize source and material lists by scanning the relevant directories #
-############################################################################
+#############################################################################
 
 # Scan the directory for alpha source value files and populate source_list
 source_values_dir = os.scandir(os.path.join('Files', 'Sources', 'Values'))
@@ -2658,9 +2671,9 @@ for entry in materials_dir:
         name, _ = os.path.splitext(entry.name)
         materials_list.append(name)
 
-############################################################################
+#############################################################################
 # Initialize main application components and global variables               #
-############################################################################
+#############################################################################
 
 # Instantiate main utility classes
 warnings_manager = Warnings()
@@ -2678,9 +2691,9 @@ Unit_settings = tk.DoubleVar(value=1e9)
 Channel_cut = tk.IntVar(value=100)
 Peak_Width = tk.IntVar(value=35)
 
-############################################################################
+#############################################################################
 # Start the application: create the first calibration tab and run the GUI   #
-############################################################################
+#############################################################################
 
 Tabs.tab_change(1)  # Add initial calibration tab
 tab_manager.notebook.select(1)  # Select the first analysis tab
@@ -2691,9 +2704,9 @@ if not os.path.exists('Temp'):
 
 main_window.run()  # Start the Tkinter main event loop
 
-############################################################################
+#############################################################################
 # Cleanup: Remove temporary files and directory after the application exits #
-############################################################################
+#############################################################################
 
 # Remove all temporary files created for each tab
 for i in range(tab_manager.value):

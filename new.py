@@ -36,20 +36,23 @@ def peakNet(x1, x2, values_list, background_data=None):
         return "N/A"
     if background_data is not None and (x1 > len(background_data) or x2 > len(background_data)):
         return "N/A"
+    
+    #both backgrounds
+
+    bckg_file = background_file(x1, x2, background_data) if background_data is not None else None
+    bckg_calc = calc_bckg(x1, x2, values_list)
 
     soma = 0
-    for i in range(int(x1), int(x2) + 1):
+    for idx, i in enumerate(range(int(x1), int(x2) + 1)):
         myCellValue = values_list[i - 1]
-        if background_data is not None:
-            bgd = background[i - 1]
+        if bckg_file is not None:
+            bgd = max(bckg_file[idx], bckg_calc[idx])
         else:
-            yL = values_list[int(x1) - 1]
-            yU = values_list[int(x2) - 1]
-            m = (yU - yL) / (x2 - x1) if x2 - x1 != 0 else 0
-            bgd = m * (i - x1) + yL
+            bgd = bckg_calc[idx]
         soma += myCellValue - bgd
 
     return soma
+
 
 def film_thickness(I, I0, mu):
     """
@@ -58,11 +61,6 @@ def film_thickness(I, I0, mu):
     I0: net peak area without film (source - background)
     mu: attenuation coefficient
     """
-    if I <= 0 or I0 <= 0 or mu == 0 or I < I0:
+    if I <= 0 or I0 <= 0 or mu == 0:
         return float('nan')
     return -1.0 / mu * np.log(I / I0)
-
-
-print("text")
-## More code
-print("AGAIN")

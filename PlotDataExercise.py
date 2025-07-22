@@ -44,11 +44,11 @@ def PlotData(File):
     return
 ##################################################
 
-#PlotData('Au+Pb_Films/u232_vacuum.mca')
-#PlotData('Au+Pb_Films/u232+Au.mca')
-#PlotData('Au+Pb_Films/u232+Pb.mca')
-PlotData('Data/NoFilm_2h_17Jul_CuSource.mca')
-PlotData('Data/Film_Sn_2h_17Jul_CuSource.mca')
+
+PlotData('Data/Tb_Calibration.mca')
+
+#PlotData('Data/Film_Sn_2h_17Jul_CuSource.mca')
+#PlotData('Data/NoFilm_for_C12_4h_2.mca')
 
 
 

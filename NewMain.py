@@ -3,6 +3,7 @@ import numpy as np
 from sympy import sympify
 from scipy.optimize import curve_fit
 from matplotlib import pyplot as plt
+from math import erf, sqrt, pi
 
 def load_mca_data(filename):
     with open(filename, 'r', encoding='latin1') as file:
@@ -31,29 +32,42 @@ y_source = source_data[x1:x2 + 1]
 y_film = source_film_data[x1:x2 + 1]
 
 # Define the Gaussian function
-def gaussian(x, A, x0, sigma):
-    return A * np.exp(-(x - x0)**2 / (2 * sigma**2))
+def gaussian(x, A, x0, sigma, B):
+    return A * np.exp(-(x - x0)**2 / (2 * sigma**2)) + B
 
 # Fit source data
-popt_source, _ = curve_fit(gaussian, x_range, y_source, p0=[max(y_source), x_range[np.argmax(y_source)], 1])
-A0, x0_0, sigma0 = popt_source
+popt_source, _ = curve_fit(gaussian, x_range, y_source, p0=[max(y_source), x_range[np.argmax(y_source)], 1, 0])
+A0, x0_0, sigma0, B0 = popt_source
 
 # Fit film data
-popt_film, _ = curve_fit(gaussian, x_range, y_film, p0=[max(y_film), x_range[np.argmax(y_film)], 1])
-A1, x0_1, sigma1 = popt_film
+popt_film, _ = curve_fit(gaussian, x_range, y_film, p0=[max(y_film), x_range[np.argmax(y_film)], 1, 0])
+A1, x0_1, sigma1, B1 = popt_film
+
+def gaussian_integral_erf(A, x0, sigma, B, x1, x2):
+    erf_part = 0.5 * (erf((x2 - x0) / (sqrt(2) * sigma)) - erf((x1 - x0) / (sqrt(2) * sigma)))
+    area_gaussian = A * sigma * sqrt(2 * pi) * erf_part
+    area_below= B * (x2 - x1)
+    return area_gaussian + area_below
 
 # Calculate Gaussian integrals
-I0 = A0 * sigma0 * np.sqrt(2 * np.pi)
-I = A1 * sigma1 * np.sqrt(2 * np.pi)
+I0 = gaussian_integral_erf(*popt_source, x1, x2)
+I = gaussian_integral_erf(*popt_film, x1, x2)
+
+## Using the previous method
+I0_ = A0 * sigma0
+I_ = A1 * sigma1
 
 # Film thickness calculation
 thickness = film_thickness(I, I0, mu)
+thickness_ = film_thickness(I_, I0_, mu) ## previous method
 print(f"Film thickness: {round(thickness)} nm")
+print(f"Film thickness (prev method): {round(thickness_)} nm")
+
 
 # Plot fits
 # Plot 1: Source (no film)
 plt.figure()
-plt.plot(x_range, y_source, label='Source', color='blue')
+plt.plot(x_range, y_source, '*', label='Source', color='blue')
 plt.plot(x_range, gaussian(x_range, *popt_source), '--', label='Gaussian Fit (Source)', color='cyan')
 plt.xlabel('Channel')
 plt.ylabel('Counts')
@@ -63,7 +77,7 @@ plt.grid(True)
 
 # Plot 2: Film
 plt.figure()
-plt.plot(x_range, y_film, label='Source + Film', color = 'green')
+plt.plot(x_range, y_film,'x', label='Source + Film', color = 'green')
 plt.plot(x_range, gaussian(x_range, *popt_film), '--', label='Gaussian Fit (Source + Film)', color='lime')
 plt.xlabel('Channel')
 plt.ylabel('Counts')

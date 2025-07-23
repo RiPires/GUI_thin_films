@@ -1993,6 +1993,7 @@ class Warnings:
         self.warning = tk.Toplevel(main_window.main)
         self.warning.title(name)
         self.warning.geometry('700x300')
+        self.warning.wait_visibility()
         self.warning.grab_set()
 
     def Images(self, name, picture, site):
@@ -2465,10 +2466,10 @@ class Tabs:
 
         if num == 1:
             Tabs.calibration_tab_counter -= 1
-            Data = "Temp\Data" + str(Tabs.calibration_tab_counter) + ".txt"
-            Analysis = "Temp\Analysis" + str(Tabs.calibration_tab_counter) + ".txt"
-            Result =  "Temp\Result" + str(Tabs.calibration_tab_counter) + ".txt"
-            ROIs = "Temp\ROIs" + str(Tabs.calibration_tab_counter) + ".txt"
+            Data = os.path.join("Temp", f"Data{Tabs.calibration_tab_counter}.txt")
+            Analysis = os.path.join("Temp", f"Analysis{Tabs.calibration_tab_counter}.txt")
+            Result =  os.path.join("Temp", f"Result{Tabs.calibration_tab_counter}.txt")
+            ROIs = os.path.join("Temp", f"ROIs{Tabs.calibration_tab_counter}.txt")
             TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
 
@@ -2485,10 +2486,10 @@ class Tabs:
 
         elif num == 2:
             Tabs.material_tab_counter += 1
-            Data = "Temp\Data" + str(Tabs.material_tab_counter) + ".txt"
-            Analysis = "Temp\Analysis" + str(Tabs.material_tab_counter) + ".txt"
-            Result =  "Temp\Result" + str(Tabs.material_tab_counter) + ".txt"
-            ROIs = "Temp\ROIs" + str(Tabs.material_tab_counter) + ".txt"
+            Data = os.path.join("Temp", f"Data{Tabs.material_tab_counter}.txt")
+            Analysis = os.path.join("Temp", f"Analysis{Tabs.material_tab_counter}.txt")
+            Result =  os.path.join("Temp", f"Result{Tabs.material_tab_counter}.txt")
+            ROIs = os.path.join("Temp", f"ROIs{Tabs.material_tab_counter}.txt")
             TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
 

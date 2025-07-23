@@ -31,6 +31,12 @@ x_range = list(range(x1, x2 + 1))
 y_source = source_data[x1:x2 + 1]
 y_film = source_film_data[x1:x2 + 1]
 
+m = 0.030826941169
+b = 0.092673711109335
+energy_range = [m * ch + b for ch in x_range] #converting channels to energy
+x_smooth = np.linspace(x1, x2, 500)
+energy_smooth = [m * ch + b for ch in x_smooth]
+
 # Define the Gaussian function
 def gaussian(x, A, x0, sigma, B):
     return A * np.exp(-(x - x0)**2 / (2 * sigma**2)) + B
@@ -68,7 +74,7 @@ print(f"Film thickness (prev method): {round(thickness_)} nm")
 # Plot 1: Source (no film)
 plt.figure()
 plt.plot(x_range, y_source, '*', label='Source', color='blue')
-plt.plot(x_range, gaussian(x_range, *popt_source), '--', label='Gaussian Fit (Source)', color='cyan')
+plt.plot(x_smooth, gaussian(x_smooth, *popt_source), '--', label='Gaussian Fit (Source)', color='cyan')
 plt.xlabel('Channel')
 plt.ylabel('Counts')
 plt.title('Gaussian Fit - Source (No Film)')
@@ -78,10 +84,30 @@ plt.grid(True)
 # Plot 2: Film
 plt.figure()
 plt.plot(x_range, y_film,'x', label='Source + Film', color = 'green')
-plt.plot(x_range, gaussian(x_range, *popt_film), '--', label='Gaussian Fit (Source + Film)', color='lime')
+plt.plot(x_smooth, gaussian(x_smooth, *popt_film), '--', label='Gaussian Fit (Source + Film)', color='lime')
 plt.xlabel('Channel')
 plt.ylabel('Counts')
 plt.title('Gaussian Fit - Source + Film')
+plt.legend()
+plt.grid(True)
+
+#Plot 3: Source - counts vs energy
+plt.figure()
+plt.plot(energy_range, y_source, '*', label='Source (Energy)', color='navy')
+plt.plot(energy_smooth, gaussian(x_smooth, *popt_source), '--', label='Gaussian Fit', color='dodgerblue')
+plt.xlabel('Energy (keV)')
+plt.ylabel('Counts')
+plt.title('Gaussian Fit - Source (No Film) [vs Energy]')
+plt.legend()
+plt.grid(True)
+
+# Plot 4: Film - counts vs energy
+plt.figure()
+plt.plot(energy_range, y_film, 'x', label='Source + Film (Energy)', color='darkgreen')
+plt.plot(energy_smooth, gaussian(x_smooth, *popt_film), '--', label='Gaussian Fit', color='limegreen')
+plt.xlabel('Energy (keV)')
+plt.ylabel('Counts')
+plt.title('Gaussian Fit - Source + Film [vs Energy]')
 plt.legend()
 plt.grid(True)
 

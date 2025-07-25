@@ -1,9 +1,10 @@
-from new import film_thickness
+from new import film_thickness, uncertainty
 import numpy as np
 from sympy import sympify
 from scipy.optimize import curve_fit
 from matplotlib import pyplot as plt
 from math import erf, sqrt, pi
+import csv
 
 def load_mca_data(filename):
     with open(filename, 'r', encoding='latin1') as file:
@@ -19,8 +20,28 @@ def load_mca_data(filename):
             data.append(float(parts[0]))
     return data
 
+
+def get_measurement_time(filename):
+
+    with open(filename, 'r', encoding='latin1') as file:
+        reader = csv.reader(file, delimiter="\n", skipinitialspace=True)
+        data = list(reader)
+        time_str = data[7][0]  #8th line
+        time = float(time_str[time_str.find('- ') + 2:])
+        return time
+
+time_source = get_measurement_time('Data/NoFilm_for_C12_4h_2.mca')
+time_film = get_measurement_time('Data/SampleC12_4h.mca')
+time_bkg = get_measurement_time('Data/Combined_bkg_Internship.txt')
+
+print(f"Measurement time (source): {time_source} s")
+print(f"Measurement time (film): {time_film} s")
+print(f"Measurement time (background): {time_bkg} s")
+
+
 source_data = load_mca_data('Data/NoFilm_for_C12_4h_2.mca')
 source_film_data = load_mca_data('Data/SampleC12_4h.mca')
+bkg_data = load_mca_data('Data/Combined_bkg_Internship.txt')
 
 # Setting ROI and attenuation coefficient
 x1 = int(input("Enter the start channel: "))  # start channel
@@ -30,6 +51,7 @@ mu = float(sympify(input("Enter the attenuation coefficient in nm^-1: "))) # att
 x_range = list(range(x1, x2 + 1))
 y_source = source_data[x1:x2 + 1]
 y_film = source_film_data[x1:x2 + 1]
+y_bkg = bkg_data[x1:x2 + 1]  
 
 m = 0.030826941169
 b = 0.092673711109335
@@ -49,6 +71,10 @@ A0, x0_0, sigma0, B0 = popt_source
 popt_film, _ = curve_fit(gaussian, x_range, y_film, p0=[max(y_film), x_range[np.argmax(y_film)], 1, 0])
 A1, x0_1, sigma1, B1 = popt_film
 
+# Fit background data
+popt_bkg, _ = curve_fit(gaussian, x_range, y_bkg, p0=[max(y_bkg), x_range[np.argmax(y_bkg)], 1, 0])
+A2, x0_2, sigma2, B2 = popt_bkg
+
 def gaussian_integral_erf(A, x0, sigma, B, x1, x2):
     erf_part = 0.5 * (erf((x2 - x0) / (sqrt(2) * sigma)) - erf((x1 - x0) / (sqrt(2) * sigma)))
     area_gaussian = A * sigma * sqrt(2 * pi) * erf_part
@@ -58,17 +84,21 @@ def gaussian_integral_erf(A, x0, sigma, B, x1, x2):
 # Calculate Gaussian integrals
 I0 = gaussian_integral_erf(*popt_source, x1, x2)
 I = gaussian_integral_erf(*popt_film, x1, x2)
+Ib = gaussian_integral_erf(*popt_bkg, x1, x2)
 
 ## Using the previous method
 I0_ = A0 * sigma0
 I_ = A1 * sigma1
+Ib_ = A2 * sigma2
 
 # Film thickness calculation
-thickness = film_thickness(I, I0, mu)
-thickness_ = film_thickness(I_, I0_, mu) ## previous method
+thickness = film_thickness(I, I0, Ib, mu)
+thickness_ = film_thickness(I_, I0_, Ib_, mu) ## previous method
 print(f"Film thickness: {round(thickness)} nm")
 print(f"Film thickness (prev method): {round(thickness_)} nm")
-
+uncertainty_value = uncertainty(I, I0, Ib, mu, time_source, time_film, time_bkg)
+print(f"Uncertainty: {uncertainty_value:.2f}")
+print(f"Full answer: {thickness:.2f} \u00B1 {uncertainty_value:.2f} nm")
 
 # Plot fits
 # Plot 1: Source (no film)

@@ -53,14 +53,39 @@ def peakNet(x1, x2, values_list, background_data=None):
 
     return soma
 
-
-def film_thickness(I, I0, mu):
-    """
+"""
+def film_thickness(I, I0, mu):  
+    
+    
     Calculate film thickness using t = -1/mu * ln(I/I0)
     I: net peak area with film (source+film - background_data)
     I0: net peak area without film (source - background)
     mu: attenuation coefficient
-    """
+    
+
     if I <= 0 or I0 <= 0 or mu == 0:
         return float('nan')
     return -1.0 / mu * np.log(I / I0)
+
+"""
+def film_thickness(I, I0, Ib, mu):
+    I_net = I - Ib
+    I0_net = I0 - Ib
+
+
+    if I_net <= 0 or I0_net <= 0 or mu == 0:
+        print("i am here")
+        return float('nan')
+    
+    return -1.0 / mu * np.log(I_net / I0_net)
+
+def uncertainty(I, I0, Ib, mu, time_source, time_film, time_bkg):
+    I_net = I - Ib
+    comp1 = Ib - I
+    comp2 = I0 - Ib
+    comp3 = I0 - I
+
+    if I <= 0 or I0 <= 0 or mu == 0:
+        return float('nan')
+    
+    return 1 / mu *np.sqrt(((I0 / time_source)*comp1**2 + (I / time_film)*comp2**2 + (Ib / time_bkg)*comp3**2) / ((comp2**2)*(I_net**2)))

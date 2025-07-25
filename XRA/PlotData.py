@@ -45,9 +45,7 @@ def PlotData(File):
 ##################################################
 
 
-PlotData('Data/Tb_Calibration.mca')
-
-#PlotData('Data/Film_Sn_2h_17Jul_CuSource.mca')
+PlotData('Data/Combined_bkg_Internship.txt')
 #PlotData('Data/NoFilm_for_C12_4h_2.mca')
 
 

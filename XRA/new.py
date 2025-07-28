@@ -68,24 +68,28 @@ def film_thickness(I, I0, mu):
     return -1.0 / mu * np.log(I / I0)
 
 """
-def film_thickness(I, I0, Ib, mu):
-    I_net = I - Ib
-    I0_net = I0 - Ib
+def film_thickness(N, N0, Nb, mu):
+    N_net = N - Nb
+    N0_net = N0 - Nb
 
 
-    if I_net <= 0 or I0_net <= 0 or mu == 0:
+    if N_net <= 0 or N0_net <= 0 or mu == 0:
         print("i am here")
         return float('nan')
     
-    return -1.0 / mu * np.log(I_net / I0_net)
+    return -1.0 / mu * np.log(N_net / N0_net)
 
-def uncertainty(I, I0, Ib, mu, time_source, time_film, time_bkg):
-    I_net = I - Ib
-    comp1 = Ib - I
-    comp2 = I0 - Ib
-    comp3 = I0 - I
+def uncertainty(N, N0, Nb, mu, time_source, time_film, time_bkg):
+    I_net = N/time_film - Nb/time_bkg
+    comp1 = Nb/time_bkg - N/time_film
+    comp2 = N0/time_source - Nb/time_bkg
+    comp3 = N0/time_source - N/time_film
 
-    if I <= 0 or I0 <= 0 or mu == 0:
+    if N <= 0 or N0 <= 0 or mu == 0:
         return float('nan')
     
-    return 1 / mu *np.sqrt(((I0 / time_source)*comp1**2 + (I / time_film)*comp2**2 + (Ib / time_bkg)*comp3**2) / ((comp2**2)*(I_net**2)))
+
+    num = N0 / (time_source * time_source)*comp1*comp1 + N / (time_film *time_film)*comp2*comp2 + Nb / (time_bkg * time_bkg) *comp3*comp3
+    den = (comp2*comp2 * I_net*I_net)*mu*mu
+
+    return np.sqrt( num/den)  #((I0 / time_source)*comp1**2 + (I / time_film)*comp2**2 + (Ib / time_bkg)*comp3**2) / ((comp2**2)*(I_net**2)))

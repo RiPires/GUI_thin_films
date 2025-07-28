@@ -229,15 +229,24 @@ def File_Reader(Document, Separator, Decimal, Upload):
     num = Current_Tab()
 
     # Open file and read its entire content
-    with open(Document, 'r') as OpenFile:
-        lines = OpenFile.read()
+    with open(Document, 'r', encoding='latin1') as OpenFile:
+        lines = OpenFile.read().splitlines()
     
     # Split the content by lines
-    lines = lines.splitlines()
+    #lines = lines.splitlines()
 
     # If needed, update GUI with the "measurement live-time" value from line 9
     if Upload == 'Yes':
         TabList[num][1].Real_Time.set(lines[8] + ' s')
+
+    start = 12
+    try:
+        end = next(i for i, line in enumerate(lines) if '<<END>>' in line)
+    except StopIteration:
+        end = len(lines)  # fallback if <<END>> not found
+
+    # Slice the lines to desired range
+    lines = lines[start:end]
 
     # If it's a 2D file (e.g. table with multiple columns)
     if Separator != '0':
@@ -404,6 +413,7 @@ def Final_Results(tracker):
                 tab_manager.Mat_Result2.bind('<Configure>',
                     lambda e: tab_manager.mat_canvas.configure(
                         scrollregion=tab_manager.mat_canvas.bbox('all'), width=e.width))
+
     return
 
 ###############################################################################
@@ -1855,6 +1865,29 @@ def Save_Results():
                            '%.*f' % (int(thickness[-1]), float(thickness[j + 2])) + ') ' +
                            units_list[index] + '\n\n')
                 file.write('_______________________________________________________________\n\n')
+
+
+        # Loop through all tabs for XRA trials
+        for i in range(len(TabTracker)):
+            if TabList[i][1].TabType == 5: 
+                file.write(f'XRA Trial {TabTracker[i]}\n\n')
+
+                file.write('Detected Peaks and Regions of Interest (ROIs):\n\n')
+
+                peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')  # Analysis file
+                rois = File_Reader(TabList[i][6], ',', 'Yes', 'No')   # ROIs file
+
+                for j, peak in enumerate(peaks):
+                    roi_info = rois[j] if j < len(rois) else ["N/A", "N/A"]
+                    file.write(
+                        f'Peak Energy: {peak[0]:.2f} keV\tCounts: {peak[1]:.1f}\t'
+                        f'ROI: {roi_info[0]} - {roi_info[1]} keV\n'
+                    )
+
+                file.write('\nThe sample analyzed was: ' +
+                           TabList[i][1].SampleName.get() + '\n\n')
+                file.write('_______________________________________________________________\n\n')
+        
     return
         
 #############################################################################

@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from math import erf, sqrt, pi
 import csv
 
+
 def load_mca_data(filename):
     with open(filename, 'r', encoding='latin1') as file:
         lines = file.readlines()
@@ -29,6 +30,8 @@ def get_measurement_time(filename):
         time_str = data[7][0]  #8th line
         time = float(time_str[time_str.find('- ') + 2:])
         return time
+
+
 
 time_source = get_measurement_time('Data/NoFilm_for_C12_4h_2.mca')
 time_film = get_measurement_time('Data/SampleC12_4h.mca')
@@ -82,21 +85,21 @@ def gaussian_integral_erf(A, x0, sigma, B, x1, x2):
     return area_gaussian + area_below
 
 # Calculate Gaussian integrals
-I0 = gaussian_integral_erf(*popt_source, x1, x2)
-I = gaussian_integral_erf(*popt_film, x1, x2)
-Ib = gaussian_integral_erf(*popt_bkg, x1, x2)
+N0 = gaussian_integral_erf(*popt_source, x1, x2)
+N = gaussian_integral_erf(*popt_film, x1, x2)
+Nb = gaussian_integral_erf(*popt_bkg, x1, x2)
 
 ## Using the previous method
-I0_ = A0 * sigma0
-I_ = A1 * sigma1
-Ib_ = A2 * sigma2
+N0_ = A0 * sigma0
+N_ = A1 * sigma1
+Nb_ = A2 * sigma2
 
 # Film thickness calculation
-thickness = film_thickness(I, I0, Ib, mu)
-thickness_ = film_thickness(I_, I0_, Ib_, mu) ## previous method
+thickness = film_thickness(N, N0, Nb, mu)
+thickness_ = film_thickness(N_, N0_, Nb_, mu) ## previous method
 print(f"Film thickness: {round(thickness)} nm")
 print(f"Film thickness (prev method): {round(thickness_)} nm")
-uncertainty_value = uncertainty(I, I0, Ib, mu, time_source, time_film, time_bkg)
+uncertainty_value = uncertainty(N, N0, Nb, mu, time_source, time_film, time_bkg)
 print(f"Uncertainty: {uncertainty_value:.2f}")
 print(f"Full answer: {thickness:.2f} \u00B1 {uncertainty_value:.2f} nm")
 

@@ -1583,28 +1583,17 @@ def Method(*args):
         tk.Label(TabList[num][1].AlgFrame, text='ROI Up: ').grid(row=2, column=1)
 
         # Create labels for each peak
-
         ## Check if we are in a XRA tab
-        ## if in a XRA analysis tab -> only create one label
-        ## else if we are in an AEL analysis -> allow the creation of the 6 labels 
-        for idx in range(6):
-            tk.Label(TabList[num][1].AlgFrame, text=f'Peak {idx+1}').grid(row=3+idx, column=2)
-
-        # Create entry fields for each ROI lower and upper bound
-        #for idx in range(6):
-            """
-            tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIdown{idx+1}'),
-                     relief='sunken', borderwidth=2).grid(row=3+idx, column=0)
-            tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIup{idx+1}'),
-                     relief='sunken', borderwidth=2).grid(row=3+idx, column=1)
-            """
-
-            #NEW
+        if num == 5:
+            range_limit = 1 ## if in a XRA analysis tab -> only create one label
+        else:
+            range_limit = 6 ## else if we are in an AEL analysis -> allow the creation of the 6 labels 
+        
+        # Initialize storage
         TabList[num][1].ROIdown_entries = []
         TabList[num][1].ROIup_entries = []
         TabList[num][1].ROIlabels = []
-
-        for idx in range(6):
+        for idx in range(range_limit):
             down_entry = tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIdown{idx+1}'))
             down_entry.grid(row=3+idx, column=0)
             TabList[num][1].ROIdown_entries.append(down_entry)
@@ -1616,6 +1605,15 @@ def Method(*args):
             label = tk.Label(TabList[num][1].AlgFrame, text=f'Peak {idx+1}')
             label.grid(row=3+idx, column=2)
             TabList[num][1].ROIlabels.append(label)
+
+        # Create entry fields for each ROI lower and upper bound
+        #for idx in range(6):
+            """
+            tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIdown{idx+1}'),
+                     relief='sunken', borderwidth=2).grid(row=3+idx, column=0)
+            tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIup{idx+1}'),
+                     relief='sunken', borderwidth=2).grid(row=3+idx, column=1)
+            """
         
         tk.Button(TabList[num][1].AlgFrame, text='Search', 
                   command=ROI_Select_Alg).grid(row=9, column=0)

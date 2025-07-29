@@ -228,7 +228,6 @@ def File_Reader(Document, Separator, Decimal, Upload):
     """
     num = Current_Tab()
 
-    # Open file and read its entire content
     with open(Document, 'r', encoding='latin1') as OpenFile:
         lines = OpenFile.read().splitlines()
     
@@ -245,14 +244,17 @@ def File_Reader(Document, Separator, Decimal, Upload):
     except StopIteration:
         end = len(lines)  # fallback if <<END>> not found
 
+
     # Slice the lines to desired range
-    lines = lines[start:end]
+    lines = lines[:end]
+
 
     # If it's a 2D file (e.g. table with multiple columns)
     if Separator != '0':
         Results = [[0] for _ in range(len(lines))]  # Create a placeholder matrix
         for i, line in enumerate(lines):
             Results[i] = line.split(Separator)  # Split each line by separator
+
 
         # Convert each value to float or int
         for j in range(len(Results)):
@@ -413,7 +415,6 @@ def Final_Results(tracker):
                 tab_manager.Mat_Result2.bind('<Configure>',
                     lambda e: tab_manager.mat_canvas.configure(
                         scrollregion=tab_manager.mat_canvas.bbox('all'), width=e.width))
-
     return
 
 ###############################################################################
@@ -1239,24 +1240,35 @@ def ROI_Select_Alg():
     counts = File_Reader(TabList[num][2], '0', 'Yes', 'No')
 
     # Retrieve ROI lower and upper bounds from the GUI (up to 6 ROIs)
+
     # Check if the current tab is XRA (TabTracker value == 5)
+
     if TabTracker[num] == 5:
-    # Use only 1 ROI for XRA
+    # Only use ROI 1 for XRA
         roi_down = [TabList[num][1].ROIdown1.get()]
         roi_up = [TabList[num][1].ROIup1.get()]
+
+    # Hide ROI 2–6 Entry widgets
+        for i in range(1, 6):  # Indexes 1 to 5
+            TabList[num][1].ROIdown_entries[i].grid_remove()
+            TabList[num][1].ROIup_entries[i].grid_remove()
+            if hasattr(TabList[num][1], 'ROIlabels'):
+                TabList[num][1].ROIlabels[i].grid_remove()
     else:
+        # Use all 6 if not XRA
         roi_down = [TabList[num][1].ROIdown1.get(),
-                TabList[num][1].ROIdown2.get(),
-                TabList[num][1].ROIdown3.get(),
-                TabList[num][1].ROIdown4.get(),
-                TabList[num][1].ROIdown5.get(),
-                TabList[num][1].ROIdown6.get()]
+                    TabList[num][1].ROIdown2.get(),
+                    TabList[num][1].ROIdown3.get(),
+                    TabList[num][1].ROIdown4.get(),
+                    TabList[num][1].ROIdown5.get(),
+                    TabList[num][1].ROIdown6.get()]
         roi_up = [TabList[num][1].ROIup1.get(),
                 TabList[num][1].ROIup2.get(),
                 TabList[num][1].ROIup3.get(),
                 TabList[num][1].ROIup4.get(),
                 TabList[num][1].ROIup5.get(),
                 TabList[num][1].ROIup6.get()]
+
 
     # Analyze the counts within each ROI to get centroids, uncertainties, and sigma/sqrt(N)
     cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
@@ -1419,8 +1431,7 @@ def handleTabChange(event):
                   text='Calibration Trial').pack()
         tk.Button(warnings_manager.warning, command=lambda: Tabs.tab_change(2), 
                   text='Material Trial').pack()
-        tk.Button(warnings_manager.warning, command=lambda: Tabs.tab_change(5), 
-                  text='XRA').pack()
+        tk.Button(warnings_manager.warning, command=lambda: Tabs.tab_change(5), text='XRA').pack()
         tk.Label(warnings_manager.warning, text='\n').pack()
         tk.Button(warnings_manager.warning, text='Return',
                   command=lambda: Tabs.tab_change(3)).pack()
@@ -1571,24 +1582,51 @@ def Method(*args):
         tk.Label(TabList[num][1].AlgFrame, text='ROI Down: ').grid(row=2, column=0)
         tk.Label(TabList[num][1].AlgFrame, text='ROI Up: ').grid(row=2, column=1)
 
-        # Create labels for each peak (1-6)
+        # Create labels for each peak
+
+        ## Check if we are in a XRA tab
+        ## if in a XRA analysis tab -> only create one label
+        ## else if we are in an AEL analysis -> allow the creation of the 6 labels 
         for idx in range(6):
             tk.Label(TabList[num][1].AlgFrame, text=f'Peak {idx+1}').grid(row=3+idx, column=2)
 
         # Create entry fields for each ROI lower and upper bound
-        for idx in range(6):
+        #for idx in range(6):
+            """
             tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIdown{idx+1}'),
                      relief='sunken', borderwidth=2).grid(row=3+idx, column=0)
             tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIup{idx+1}'),
                      relief='sunken', borderwidth=2).grid(row=3+idx, column=1)
+            """
 
+            #NEW
+        TabList[num][1].ROIdown_entries = []
+        TabList[num][1].ROIup_entries = []
+        TabList[num][1].ROIlabels = []
+
+        for idx in range(6):
+            down_entry = tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIdown{idx+1}'))
+            down_entry.grid(row=3+idx, column=0)
+            TabList[num][1].ROIdown_entries.append(down_entry)
+
+            up_entry = tk.Entry(TabList[num][1].AlgFrame, textvariable=getattr(TabList[num][1], f'ROIup{idx+1}'))
+            up_entry.grid(row=3+idx, column=1)
+            TabList[num][1].ROIup_entries.append(up_entry)
+
+            label = tk.Label(TabList[num][1].AlgFrame, text=f'Peak {idx+1}')
+            label.grid(row=3+idx, column=2)
+            TabList[num][1].ROIlabels.append(label)
+        
         tk.Button(TabList[num][1].AlgFrame, text='Search', 
                   command=ROI_Select_Alg).grid(row=9, column=0)
         tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
                   command=Unchecked_Results).grid(row=9, column=1)
         tk.Button(TabList[num][1].AlgFrame, text='Remove All',
                   command=lambda: ClearWidget('Results', 1)).grid(row=9, column=2)
+         
     return
+
+
 
 #############################################################################
 # Esta funcao muda uma linha de threshold, caso o utilizador escreva um numero
@@ -1865,29 +1903,6 @@ def Save_Results():
                            '%.*f' % (int(thickness[-1]), float(thickness[j + 2])) + ') ' +
                            units_list[index] + '\n\n')
                 file.write('_______________________________________________________________\n\n')
-
-
-        # Loop through all tabs for XRA trials
-        for i in range(len(TabTracker)):
-            if TabList[i][1].TabType == 5: 
-                file.write(f'XRA Trial {TabTracker[i]}\n\n')
-
-                file.write('Detected Peaks and Regions of Interest (ROIs):\n\n')
-
-                peaks = File_Reader(TabList[i][3], ',', 'Yes', 'No')  # Analysis file
-                rois = File_Reader(TabList[i][6], ',', 'Yes', 'No')   # ROIs file
-
-                for j, peak in enumerate(peaks):
-                    roi_info = rois[j] if j < len(rois) else ["N/A", "N/A"]
-                    file.write(
-                        f'Peak Energy: {peak[0]:.2f} keV\tCounts: {peak[1]:.1f}\t'
-                        f'ROI: {roi_info[0]} - {roi_info[1]} keV\n'
-                    )
-
-                file.write('\nThe sample analyzed was: ' +
-                           TabList[i][1].SampleName.get() + '\n\n')
-                file.write('_______________________________________________________________\n\n')
-        
     return
         
 #############################################################################
@@ -1962,7 +1977,7 @@ class Skeleton:
         self.menu.add_cascade(label='Manage Tabs', menu=__tabs_menu)
         __tabs_menu.add_command(label='Add Calibration Tab', command=lambda: Tabs.tab_change(1))
         __tabs_menu.add_command(label='Add Material Tab', command=lambda: Tabs.tab_change(2))
-        __tabs_menu.add_command(label='Add XRA Tab', command=lambda: Tabs.tab_change(5))
+        __tabs_menu.add_command(label='Add XRA Tab', command=lambda: Tabs.tab_change(5))        
         __tabs_menu.add_separator()
         __tabs_menu.add_command(label='Remove Current Tab', command=lambda: Tabs.tab_change(4))
 
@@ -2034,8 +2049,8 @@ class Warnings:
         # Create a modal popup window with the given title
         self.warning = tk.Toplevel(main_window.main)
         self.warning.title(name)
-        self.warning.geometry('700x300')
         self.warning.wait_visibility()
+        self.warning.geometry('700x300')
         self.warning.grab_set()
 
     def Images(self, name, picture, site):
@@ -2405,16 +2420,22 @@ class Tabs:
             self.variable1, self.variable2, self.variable3, self.variable4, self.variable5,
             self.variable6, self.variable7, self.variable8, self.variable9, self.variable10,
             self.variable11, self.variable12, self.variable13, self.variable14, self.variable15]
-
+    
+        ## Check if we are in an XRA analysis tab
         if tab_kind == 5:
             self.Algorithm_Method.set("ROI Select")
-            Method()  # Trigger layout
-            tk.Label(self.DataFrame, text='Analysis Method: ROI Select').grid(row=0, columnspan=2)
+            Method()
+
+            for i in range(1, 6):  # index 1 to 5 = ROI 2 to 6
+                self.ROIdown_entries[i].grid_remove()
+                self.ROIup_entries[i].grid_remove()
+                self.ROIlabels[i].grid_remove()
+
+
         else:
             tk.Label(self.DataFrame, text='Analysis Method Selected:').grid(row=0, columnspan=2)
             Algs = ["Manual Selection", "Threshold Input", "ROI Select"]
             tk.OptionMenu(self.DataFrame, self.Algorithm_Method, *Algs, command=Method).grid(row=1, columnspan=2)
-
 
         def MatTab(self):
 
@@ -2497,6 +2518,9 @@ class Tabs:
             self.SourceOptionsFrame = tk.Frame(self.SourceFrame, borderwidth = 0)
             self.SourceOptionsFrame.grid(row = 2, columnspan = 2)
             self.LinearRegressionFrame = tk.Frame(self.SourceFrame, borderwidth = 1)
+
+        #def XraTab(self):
+
             
         if tab_kind == 1:
             CalibTab(self)
@@ -2515,10 +2539,10 @@ class Tabs:
 
         if num == 1:
             Tabs.calibration_tab_counter -= 1
-            Data = os.path.join("Temp", f"Data{Tabs.calibration_tab_counter}.txt")
-            Analysis = os.path.join("Temp", f"Analysis{Tabs.calibration_tab_counter}.txt")
-            Result =  os.path.join("Temp", f"Result{Tabs.calibration_tab_counter}.txt")
-            ROIs = os.path.join("Temp", f"ROIs{Tabs.calibration_tab_counter}.txt")
+            Data = os.path.join('Temp', 'Data' + str(Tabs.calibration_tab_counter) + '.txt')
+            Analysis = os.path.join('Temp', 'Analysis' + str(Tabs.calibration_tab_counter) + '.txt')
+            Result =  os.path.join('Temp', 'Result' + str(Tabs.calibration_tab_counter) + '.txt')
+            ROIs = os.path.join('Temp', 'ROIs' + str(Tabs.calibration_tab_counter) + '.txt')
             TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
 
@@ -2535,10 +2559,10 @@ class Tabs:
 
         elif num == 2:
             Tabs.material_tab_counter += 1
-            Data = os.path.join("Temp", f"Data{Tabs.material_tab_counter}.txt")
-            Analysis = os.path.join("Temp", f"Analysis{Tabs.material_tab_counter}.txt")
-            Result =  os.path.join("Temp", f"Result{Tabs.material_tab_counter}.txt")
-            ROIs = os.path.join("Temp", f"ROIs{Tabs.material_tab_counter}.txt")
+            Data = os.path.join('Temp', 'Data' + str(Tabs.material_tab_counter) + '.txt')
+            Analysis = os.path.join('Temp', 'Analysis' + str(Tabs.material_tab_counter) + '.txt')
+            Result =  os.path.join('Temp', 'Result' + str(Tabs.material_tab_counter) + '.txt')
+            ROIs = os.path.join('Temp', 'ROIs' + str(Tabs.material_tab_counter) + '.txt')
             TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
 
@@ -2552,20 +2576,17 @@ class Tabs:
                 warnings_manager.warning.destroy()
             except:
                 ()
-        
         elif num == 5:
             Tabs.xra_tab_counter += 1
-            Data = os.path.join("Temp", f"Data{Tabs.xra_tab_counter}.txt")
-            Analysis = os.path.join("Temp", f"Analysis{Tabs.xra_tab_counter}.txt")
-            Result =  os.path.join("Temp", f"Result{Tabs.xra_tab_counter}.txt")
-            ROIs = os.path.join("Temp", f"ROIs{Tabs.xra_tab_counter}.txt")
+            Data = os.path.join('Temp', 'Data' + str(Tabs.xra_tab_counter) + '.txt')
+            Analysis = os.path.join('Temp', 'Analysis' + str(Tabs.xra_tab_counter) + '.txt')
+            Result =  os.path.join('Temp', 'Results' + str(Tabs.xra_tab_counter) + '.txt')
+            ROIs = os.path.join('Temp', 'ROIs' + str(Tabs.xra_tab_counter) + '.txt')
             TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
-
             TabTracker.append(Tabs.xra_tab_counter)
             TabList[tab_manager.value][1].AnalysisTab(5)
-            tab_manager.notebook.insert(index, TabList[tab_manager.value][0], 
-                                     text = " XRA " + str(Tabs.xra_tab_counter))
+            tab_manager.notebook.insert(index, TabList[tab_manager.value][0],text = " XRA " + str(Tabs.xra_tab_counter))
             tab_manager.notebook.select(index)
             tab_manager.value += 1
             try:
@@ -2573,8 +2594,8 @@ class Tabs:
             except:
                 ()
 
-
-
+        
+        
         elif num == 3:
             tab_manager.notebook.select(index - 1)
             warnings_manager.warning.destroy()

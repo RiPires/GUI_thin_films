@@ -89,16 +89,10 @@ N0 = gaussian_integral_erf(*popt_source, x1, x2)
 N = gaussian_integral_erf(*popt_film, x1, x2)
 Nb = gaussian_integral_erf(*popt_bkg, x1, x2)
 
-## Using the previous method
-N0_ = A0 * sigma0
-N_ = A1 * sigma1
-Nb_ = A2 * sigma2
 
 # Film thickness calculation
 thickness = film_thickness(N, N0, Nb, mu)
-thickness_ = film_thickness(N_, N0_, Nb_, mu) ## previous method
 print(f"Film thickness: {round(thickness)} nm")
-print(f"Film thickness (prev method): {round(thickness_)} nm")
 uncertainty_value = uncertainty(N, N0, Nb, mu, time_source, time_film, time_bkg)
 print(f"Uncertainty: {uncertainty_value:.2f}")
 print(f"Full answer: {thickness:.2f} \u00B1 {uncertainty_value:.2f} nm")

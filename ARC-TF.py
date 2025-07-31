@@ -1236,6 +1236,7 @@ def ROI_Select_Alg():
         None
     """
     num = Current_Tab()
+
     # Read counts data for the current tab
     counts = File_Reader(TabList[num][2], '0', 'Yes', 'No')
 
@@ -1243,17 +1244,27 @@ def ROI_Select_Alg():
 
     # Check if the current tab is XRA (TabTracker value == 5)
 
-    if TabTracker[num] == 5:
+    if TabList[num][1].tab_kind == 5:
+
     # Only use ROI 1 for XRA
         roi_down = [TabList[num][1].ROIdown1.get()]
         roi_up = [TabList[num][1].ROIup1.get()]
+        print("I am here")
 
     # Hide ROI 2–6 Entry widgets
-        for i in range(1, 6):  # Indexes 1 to 5
-            TabList[num][1].ROIdown_entries[i].grid_remove()
-            TabList[num][1].ROIup_entries[i].grid_remove()
-            if hasattr(TabList[num][1], 'ROIlabels'):
-                TabList[num][1].ROIlabels[i].grid_remove()
+        for i in range(1, min(6, len(TabList[num][1].ROIdown_entries))):
+            try:
+                TabList[num][1].ROIdown_entries[i].grid_remove()
+                TabList[num][1].ROIup_entries[i].grid_remove()
+                if hasattr(TabList[num][1], 'ROIlabels'):
+                    TabList[num][1].ROIlabels[i].grid_remove()
+                TabList[num][1].ROIdown_entries[i].delete(0, tk.END)
+                TabList[num][1].ROIup_entries[i].delete(0, tk.END)
+                getattr(TabList[num][1], f'ROIdown{i+1}').set(0)
+                getattr(TabList[num][1], f'ROIup{i+1}').set(0)
+            except IndexError:
+                print(f"Skipping ROI entry {i} — not defined for this tab.")
+
     else:
         # Use all 6 if not XRA
         roi_down = [TabList[num][1].ROIdown1.get(),
@@ -1269,7 +1280,10 @@ def ROI_Select_Alg():
                 TabList[num][1].ROIup5.get(),
                 TabList[num][1].ROIup6.get()]
 
-
+    print("TabTracker:", TabTracker[num])
+    print("roi_down:", roi_down)
+    print("roi_up:", roi_up)
+    print("Number of ROIs passed to Analyze:", len(roi_down))
     # Analyze the counts within each ROI to get centroids, uncertainties, and sigma/sqrt(N)
     cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
 
@@ -1379,35 +1393,84 @@ def DataUploader():
     num = Current_Tab()
 
     # Define the allowed file types for upload
-    domain = (('Text Files', '*.mca'), ('All Files', '*.*')) 
+    domain = (('Text Files', '*.mca'), ('All Files', '*.*'))
 
-    # Open a file dialog window for user to select the data file
-    filename = fd.askopenfilename(title='Open a file', initialdir=',', filetypes=domain) 
+    tab_type = getattr(TabList[num][1], 'tab_kind', None)
 
-    # If no file was selected, do nothing and exit
-    if not filename:
-        pass
+    # XRA tab
+    if tab_type == 5:
+        # Ask XRA user: Source only or Source + Film?
+        mode_window = tk.Toplevel()
+        mode_window.title("XRA Plot Mode")
 
-    else:
-        # Read the uploaded file's contents using File_Reader function
-        file = File_Reader(filename, '0', 'string', 'Yes')
+        tk.Label(mode_window, text="XRA tab detected.\nDo you want to plot:").pack(padx=10, pady=10)
 
-        # Process the file structure and generate the initial plot
-        TabList[num][5].Structure(file, filename)
-        TabList[num][5].subplots()
+        def upload_source_only():
+            mode_window.destroy()
+            filename = fd.askopenfilename(title='Open Source File', filetypes=[('Text Files', '*.mca'), ('All Files', '*.*')])
+            if not filename:
+                return
 
-        # Retrieve the current algorithm selection and apply it if needed
-        value = TabList[num][1].Algorithm.get()
-        if value != 0:
-            TabList[num][5].threshold(value)
+            file = File_Reader(filename, '0', 'string', 'Yes')
+            TabList[num][5].source_data = file
+            TabList[num][5].source_file = filename
+            TabList[num][5].Structure(file, filename)
+            TabList[num][5].subplots()
+            Tabs.RenameTab(filename.split('/')[-1])
 
-    # Rename the tab to the filename (only the file's name, not the full path)
-    try:
-        Tabs.RenameTab(filename.split('/')[-1])
-    except:
-        pass  # Ignore errors in renaming tab
+        def upload_film():
+            mode_window.destroy()
 
-    return
+            try:
+                source_data = TabList[num][5].source_data
+                source_file = TabList[num][5].source_file
+            except AttributeError:
+                tk.messagebox.showerror("Missing Source File", "Please upload a Source file first using 'Source Only'.")
+                return
+
+            film_file = fd.askopenfilename(title='Open Film File', filetypes=[('Text Files', '*.mca'), ('All Files', '*.*')])
+            if not film_file:
+                return
+
+            film_data = File_Reader(film_file, '0', 'string', 'No')
+
+            TabList[num][5].Structure(source_data, source_file, film_data)
+            TabList[num][5].subplots()
+            Tabs.RenameTab(film_file.split('/')[-1])
+
+        tk.Button(mode_window, text="Source Only", command=upload_source_only).pack(padx=10, pady=5)
+        tk.Button(mode_window, text="Source + Film", command=upload_film).pack(padx=10, pady=5)
+
+    # All other tabs
+    else: 
+
+        # Open a file dialog window for user to select the data file
+        filename = fd.askopenfilename(title='Open a file', initialdir=',', filetypes=domain) 
+
+        # If no file was selected, do nothing and exit
+        if not filename:
+            pass
+
+        else:
+            # Read the uploaded file's contents using File_Reader function
+            file = File_Reader(filename, '0', 'string', 'Yes')
+
+            # Process the file structure and generate the initial plot
+            TabList[num][5].Structure(file, filename)
+            TabList[num][5].subplots()
+
+            # Retrieve the current algorithm selection and apply it if needed
+            value = TabList[num][1].Algorithm.get()
+            if value != 0:
+                TabList[num][5].threshold(value)
+
+        # Rename the tab to the filename (only the file's name, not the full path)
+        try:
+            Tabs.RenameTab(filename.split('/')[-1])
+        except:
+            pass  # Ignore errors in renaming tab
+
+        return
 
 ######################################################
 # Handles the event of changing tabs in the notebook #
@@ -1584,10 +1647,12 @@ def Method(*args):
 
         # Create labels for each peak
         ## Check if we are in a XRA tab
-        if num == 5:
-            range_limit = 1 ## if in a XRA analysis tab -> only create one label
+        
+        if TabList[num][1].tab_kind == 5:
+            range_limit = 1
         else:
-            range_limit = 6 ## else if we are in an AEL analysis -> allow the creation of the 6 labels 
+            range_limit = 6
+
         
         # Initialize storage
         TabList[num][1].ROIdown_entries = []
@@ -2308,6 +2373,7 @@ class Tabs:
         self.notebook.bind("<<NotebookTabChanged>>", handleTabChange)      
 
     def AnalysisTab(self, tab_kind):
+        self.tab_kind = tab_kind
 
         ### Configuracao de geometria e Frames comuns a Calib e Material Tabs  ####
         TabList[tab_manager.value][0].columnconfigure(0, weight = 4)
@@ -2424,10 +2490,10 @@ class Tabs:
             self.Algorithm_Method.set("ROI Select")
             Method()
 
-            for i in range(1, 6):  # index 1 to 5 = ROI 2 to 6
+            """ for i in range(1, 6):  # index 1 to 5 = ROI 2 to 6
                 self.ROIdown_entries[i].grid_remove()
                 self.ROIup_entries[i].grid_remove()
-                self.ROIlabels[i].grid_remove()
+                self.ROIlabels[i].grid_remove() """
 
 
         else:
@@ -2527,7 +2593,7 @@ class Tabs:
             MatTab(self)
 
     @staticmethod
-    def tab_change(num):
+    def tab_change(tab_type):
         """
         Handles adding, removing, and switching tabs in the Notebook.
         tab_type: 1 = add calibration, 2 = add material, 3 = cancel, 4 = remove current
@@ -2535,7 +2601,7 @@ class Tabs:
         value = Current_Tab()
         index = len(tab_manager.notebook.tabs()) - 1             
 
-        if num == 1:
+        if tab_type == 1:
             Tabs.calibration_tab_counter -= 1
             Data = os.path.join('Temp', 'Data' + str(Tabs.calibration_tab_counter) + '.txt')
             Analysis = os.path.join('Temp', 'Analysis' + str(Tabs.calibration_tab_counter) + '.txt')
@@ -2555,7 +2621,7 @@ class Tabs:
             except:
                 ()
 
-        elif num == 2:
+        elif tab_type == 2:
             Tabs.material_tab_counter += 1
             Data = os.path.join('Temp', 'Data' + str(Tabs.material_tab_counter) + '.txt')
             Analysis = os.path.join('Temp', 'Analysis' + str(Tabs.material_tab_counter) + '.txt')
@@ -2574,7 +2640,7 @@ class Tabs:
                 warnings_manager.warning.destroy()
             except:
                 ()
-        elif num == 5:
+        elif tab_type == 5:
             Tabs.xra_tab_counter += 1
             Data = os.path.join('Temp', 'Data' + str(Tabs.xra_tab_counter) + '.txt')
             Analysis = os.path.join('Temp', 'Analysis' + str(Tabs.xra_tab_counter) + '.txt')
@@ -2582,6 +2648,7 @@ class Tabs:
             ROIs = os.path.join('Temp', 'ROIs' + str(Tabs.xra_tab_counter) + '.txt')
             TabList.append([tk.Frame(tab_manager.notebook, bg = 'dark grey'), Tabs(),  Data,
                         Analysis,  Result, Plot(), ROIs]) 
+
             TabTracker.append(Tabs.xra_tab_counter)
             TabList[tab_manager.value][1].AnalysisTab(5)
             tab_manager.notebook.insert(index, TabList[tab_manager.value][0],text = " XRA " + str(Tabs.xra_tab_counter))
@@ -2594,11 +2661,11 @@ class Tabs:
 
         
         
-        elif num == 3:
+        elif tab_type == 3:
             tab_manager.notebook.select(index - 1)
             warnings_manager.warning.destroy()
 
-        elif num == 4:
+        elif tab_type == 4:
             if tab_manager.notebook.select() == '.!notebook.!frame' or tab_manager.notebook.select() == '.!notebook.!frame2':
                 warnings_manager.popup('Bad Tab Deletion')
                 tk.Label(warnings_manager.warning, text = '\n This Tab cannot be deleted.\nPlease delete Analysis Tabs').pack()
@@ -2667,14 +2734,17 @@ class Plot:
         figure_canvas (FigureCanvasTkAgg): Canvas for embedding the plot in Tkinter.
         axes (Axes): Matplotlib Axes object for plotting.
     """
-    def Structure(self, File, Name):
+    def Structure(self, File, Name, File2 = None):
         # Initialize lists for channel and counts
         self.Channel = []
         self.Counts = []
+        self.Channel2 = []
+        self.Counts2 = []
         self.line = []
 
         num = Current_Tab()
         total_sum = 0
+        total_sum2 = 0
         j = 0
 
         # Clear previous plot and set up the graphic frame
@@ -2692,21 +2762,31 @@ class Plot:
                 self.Channel.append(i - 11)
                 Data.write(str(self.Counts[i - 12]) + "\n")
                 j += 1
+        
 
         Data.close()
 
         # Update total counts and display in the extra frame
         TabList[num][1].Total_Counts.set(total_sum)
         TabList[num][1].Extra_Frame.grid(column=0, row=1, sticky="nw")
-        tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0)
-        tk.Label(TabList[num][1].Extra_Frame, text='Total Sum of Counts is: ' +
-                 str(TabList[num][1].Total_Counts.get())).grid(row=1)
+        
+        tk.Label(TabList[num][1].Extra_Frame, text="File 1:").grid(row=0, column=0, sticky="w")
+        tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
+        tk.Label(TabList[num][1].Extra_Frame, text='Total: ' + str(TabList[num][1].Total_Counts.get())).grid(row=0, column=2, sticky="w")
 
         # Set plot title based on tab type
         if TabTracker[num] < 0:
             self.Title = 'Calibration Trial ' + str(-TabTracker[num])
         elif TabTracker[num] > 0:
             self.Title = 'Material Trial ' + str(TabTracker[num])
+        else:
+            self.Title = 'XRA Analysis'
+
+        # If this is an XRA tab and File2 is provided, parse second dataset
+        if getattr(TabList[num][1], 'tab_kind', None) == 5 and File2:
+            for i in range(12, len(File2) - 1):
+                self.Counts2.append(int(File2[i]))
+                self.Channel2.append(i - 11)
 
         # Create the matplotlib figure and embed it in the Tkinter frame
         self.figure = Figure(figsize=(6, 4), dpi=100)
@@ -2716,10 +2796,16 @@ class Plot:
     def subplots(self):
         # Create the plot with channels on x-axis and counts on y-axis
         self.axes = self.figure.add_subplot()
-        self.axes.plot(self.Channel, self.Counts, '.', markersize=7, label='Run')
+        self.axes.plot(self.Channel, self.Counts, '*', label='Source')
+
+        # If second dataset exists, plot it
+        if self.Counts2:
+            self.axes.plot(self.Channel2, self.Counts2, '+', label='Source + Film', color='red')
+
         self.axes.set_title(self.Title)
         self.axes.set_xlabel('Channel')
         self.axes.set_ylabel('Counts')
+        self.axes.legend()
 
         # Connect mouse click event for manual selection
         self.figure.canvas.mpl_connect('button_press_event', onclick)

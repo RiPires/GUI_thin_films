@@ -238,6 +238,12 @@ def File_Reader(Document, Separator, Decimal, Upload):
     if Upload == 'Yes':
         TabList[num][1].Real_Time.set(lines[8] + ' s')
 
+        if TabList[num][1].tab_kind == 5:
+            try:
+                TabList[num][1].Real_Time_2.set(lines[8] + ' s')
+            except AttributeError:
+                TabList[num][1].Real_Time_2 = tk.StringVar(value=lines[8] + ' s')
+
     start = 12
     try:
         end = next(i for i, line in enumerate(lines) if '<<END>>' in line)
@@ -416,6 +422,10 @@ def Final_Results(tracker):
                     lambda e: tab_manager.mat_canvas.configure(
                         scrollregion=tab_manager.mat_canvas.bbox('all'), width=e.width))
     return
+
+
+###############################################################################
+
 
 ###############################################################################
 # Allows the user to choose which linear regression(s) to use for calibration #
@@ -1284,6 +1294,20 @@ def ROI_Select_Alg():
     print("roi_down:", roi_down)
     print("roi_up:", roi_up)
     print("Number of ROIs passed to Analyze:", len(roi_down))
+
+    for idx, (d, u) in enumerate(zip(roi_down, roi_up)):
+        try:
+            x1 = float(d)
+            x2 = float(u)
+        except (ValueError, TypeError):
+            tk.messagebox.showerror("Error", f"Invalid ROI input at peak {idx+1}: \nROId = {d}, ROIu = {u}")
+            return
+
+        if x2 <= x1 or (x2 - x1) < 2:
+            tk.messagebox.showerror("Error", f"Invalid ROI range at peak {idx+1}: \nx1 = {x1}, x2 = {x2} "
+                                f"\nUpper bound must be greater than lower bound and difference must be at least 2.")
+            return
+
     # Analyze the counts within each ROI to get centroids, uncertainties, and sigma/sqrt(N)
     cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
 
@@ -2115,6 +2139,9 @@ class Warnings:
         self.warning.wait_visibility()
         self.warning.geometry('700x300')
         self.warning.grab_set()
+    
+    def show(message):
+        tk.messagebox.showwarning("Warning", message)    
 
     def Images(self, name, picture, site):
         # Display a decay chain image in a popup window, with optional source link
@@ -2446,7 +2473,10 @@ class Tabs:
         self.peaks_widths.set(Peak_Width.get())
 
         self.Real_Time = tk.StringVar()
-        
+        self.Real_Time_2 = tk.StringVar()
+        self.Real_Time_2.set('5')
+    
+
         self.Total_Counts = tk.StringVar()
 
         self.variable1 = tk.IntVar()
@@ -2770,9 +2800,14 @@ class Plot:
         TabList[num][1].Total_Counts.set(total_sum)
         TabList[num][1].Extra_Frame.grid(column=0, row=1, sticky="nw")
         
-        tk.Label(TabList[num][1].Extra_Frame, text="File 1:").grid(row=0, column=0, sticky="w")
+        tk.Label(TabList[num][1].Extra_Frame, text="Source:").grid(row=0, column=0, sticky="w")
         tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
         tk.Label(TabList[num][1].Extra_Frame, text='Total: ' + str(TabList[num][1].Total_Counts.get())).grid(row=0, column=2, sticky="w")
+        
+        #For XRA tab, also show File 2 time
+        if TabList[num][1].tab_kind == 5:
+            tk.Label(TabList[num][1].Extra_Frame, text="Source+Film:").grid(row=1, column=0, sticky="w")
+            tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time_2.get()).grid(row=1, column=1, sticky="w")
 
         # Set plot title based on tab type
         if TabTracker[num] < 0:

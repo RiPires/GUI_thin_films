@@ -33,8 +33,8 @@ def get_measurement_time(filename):
 
 
 
-time_source = get_measurement_time('Data/NoFilm_for_C12_4h_2.mca')
-time_film = get_measurement_time('Data/SampleC12_4h.mca')
+time_source = get_measurement_time('Data/CuSource_01Aug.mca')
+time_film = get_measurement_time('Data/Al_foil_CuSource_01Aug.mca')
 time_bkg = get_measurement_time('Data/Combined_bkg_Internship.txt')
 
 print(f"Measurement time (source): {time_source} s")
@@ -42,8 +42,8 @@ print(f"Measurement time (film): {time_film} s")
 print(f"Measurement time (background): {time_bkg} s")
 
 
-source_data = load_mca_data('Data/NoFilm_for_C12_4h_2.mca')
-source_film_data = load_mca_data('Data/SampleC12_4h.mca')
+source_data = load_mca_data('Data/CuSource_01Aug.mca')
+source_film_data = load_mca_data('Data/Al_foil_CuSource_01Aug.mca')
 bkg_data = load_mca_data('Data/Combined_bkg_Internship.txt')
 
 # Setting ROI and attenuation coefficient

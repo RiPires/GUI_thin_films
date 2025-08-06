@@ -215,6 +215,7 @@ def File_Reader(Document, Separator, Decimal, Upload):
                           'No'   -> Convert values to int
                           'String' -> Return raw strings (1D only)
        Upload    (str)  : If set to 'Yes', updates the GUI with a real-time value from the file.
+                          If set to 'second_file', adds real-time value from the second file to the GUI.
     
      Returns:
        List of values:
@@ -238,11 +239,8 @@ def File_Reader(Document, Separator, Decimal, Upload):
     if Upload == 'Yes':
         TabList[num][1].Real_Time.set(lines[8] + ' s')
 
-        if TabList[num][1].tab_kind == 5:
-            try:
-                TabList[num][1].Real_Time_2.set(lines[8] + ' s')
-            except AttributeError:
-                TabList[num][1].Real_Time_2 = tk.StringVar(value=lines[8] + ' s')
+    if Upload == 'second_file': # for adding the real-time from the source+film file
+        TabList[num][1].Real_Time_2.set(lines[8] + ' s')
 
     start = 12
     try:
@@ -1456,7 +1454,7 @@ def DataUploader():
             if not film_file:
                 return
 
-            film_data = File_Reader(film_file, '0', 'string', 'No')
+            film_data = File_Reader(film_file, '0', 'string', 'second_file')
 
             TabList[num][5].Structure(source_data, source_file, film_data)
             TabList[num][5].subplots()
@@ -2474,10 +2472,9 @@ class Tabs:
 
         self.Real_Time = tk.StringVar()
         self.Real_Time_2 = tk.StringVar()
-        self.Real_Time_2.set('5')
     
 
-        self.Total_Counts = tk.StringVar()
+        #self.Total_Counts = tk.StringVar()
 
         self.variable1 = tk.IntVar()
         self.variable1.set(0)
@@ -2797,12 +2794,12 @@ class Plot:
         Data.close()
 
         # Update total counts and display in the extra frame
-        TabList[num][1].Total_Counts.set(total_sum)
+        #TabList[num][1].Total_Counts.set(total_sum)
         TabList[num][1].Extra_Frame.grid(column=0, row=1, sticky="nw")
         
         tk.Label(TabList[num][1].Extra_Frame, text="Source:").grid(row=0, column=0, sticky="w")
         tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
-        tk.Label(TabList[num][1].Extra_Frame, text='Total: ' + str(TabList[num][1].Total_Counts.get())).grid(row=0, column=2, sticky="w")
+        #tk.Label(TabList[num][1].Extra_Frame, text='Total: ' + str(TabList[num][1].Total_Counts.get())).grid(row=0, column=2, sticky="w")
         
         #For XRA tab, also show File 2 time
         if TabList[num][1].tab_kind == 5:

@@ -250,7 +250,10 @@ def File_Reader(Document, Separator, Decimal, Upload):
 
 
     # Slice the lines to desired range
-    lines = lines[:end]
+    if lines and lines[0].strip() == "<<PMCA SPECTRUM>>":
+        lines = lines[start:end]  # MCA file → skip header
+    else:
+        lines = lines[:end]       # Other file → no header skip
 
 
     # If it's a 2D file (e.g. table with multiple columns)
@@ -1246,18 +1249,18 @@ def ROI_Select_Alg():
     num = Current_Tab()
 
     # Read counts data for the current tab
-    counts = File_Reader(TabList[num][2], '0', 'Yes', 'No')
-
-    # Retrieve ROI lower and upper bounds from the GUI (up to 6 ROIs)
+    #counts = File_Reader(TabList[num][2], '0', 'Yes', 'No')
 
     # Check if the current tab is XRA (TabTracker value == 5)
-
     if TabList[num][1].tab_kind == 5:
 
-    # Only use ROI 1 for XRA
+        # Only use ROI 1 for XRA
         roi_down = [TabList[num][1].ROIdown1.get()]
         roi_up = [TabList[num][1].ROIup1.get()]
-        print("I am here")
+
+        # Load counts from both files (source and film) using stored file paths
+        counts = File_Reader(TabList[num][5].source_file, '0', 'Yes', 'No')
+        counts2 = File_Reader(TabList[num][5].film_file, '0', 'Yes', 'No')
 
     # Hide ROI 2–6 Entry widgets
         for i in range(1, min(6, len(TabList[num][1].ROIdown_entries))):
@@ -1275,6 +1278,8 @@ def ROI_Select_Alg():
 
     else:
         # Use all 6 if not XRA
+        counts = File_Reader(TabList[num][2], '0', 'Yes', 'No')
+        counts2 = None
         roi_down = [TabList[num][1].ROIdown1.get(),
                     TabList[num][1].ROIdown2.get(),
                     TabList[num][1].ROIdown3.get(),
@@ -1308,16 +1313,24 @@ def ROI_Select_Alg():
 
     # Analyze the counts within each ROI to get centroids, uncertainties, and sigma/sqrt(N)
     cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
+    if counts2 is not None:
+        cents2, errs2, sigmas2 = Analyze(counts2, roi_down, roi_up)
+    else:
+        cents2, errs2, sigmas2 = [], [], [] #when non-XRA tab
 
     # Write results to file: append if file exists, otherwise create new
     if os.path.isfile(TabList[num][3]):
         with open(TabList[num][3], 'a') as results:
             for i in range(len(cents)):
                 results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n")
+            for i in range(len(cents2)):
+                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]}\n")
     else:
         with open(TabList[num][3], 'w') as results:
             for i in range(len(cents)):
                 results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n")
+            for i in range(len(cents2)):
+                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]}\n")
 
     # Update the results display in the GUI
     ResultManager()
@@ -1455,6 +1468,9 @@ def DataUploader():
                 return
 
             film_data = File_Reader(film_file, '0', 'string', 'second_file')
+            # Store film file path (film_file) for later reading (used in roi_select), and keep the already loaded data (film_data) for immediate use
+            TabList[num][5].film_file = film_file  
+            TabList[num][5].film_data = film_data    
 
             TabList[num][5].Structure(source_data, source_file, film_data)
             TabList[num][5].subplots()

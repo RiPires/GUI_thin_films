@@ -799,22 +799,47 @@ def ResultManager():
     if method == 'ROI Select':
         values = File_Reader(TabList[num][3], ',', 'Yes', 'No')
         for j in range(len(values)):
-            Result_Button = tk.Checkbutton(
-                TabList[num][1].ResultFrame,
-                variable=TabList[num][1].Var_Data[j],
-                onvalue=1, offvalue=-1,
-                text='Centroid: ' + str("{:.1f}".format(values[j][0]))
-            )
-            Result_Button.grid(row=j, column=0)
-            Result_Button.select()
-            tk.Label(
-                TabList[num][1].ResultFrame,
-                text='\t \u03C3 =  ' + str("{:.1f}".format(values[j][2]))
-            ).grid(row=j, column=1)
-            tk.Label(
-                TabList[num][1].ResultFrame,
-                text='\t \u03C3/\u221aN =  ' + str("{:.3f}".format(values[j][1]))
-            ).grid(row=j, column=2)
+            if TabList[num][1].tab_kind == 5:
+                tk.Label(
+                    TabList[num][1].ResultFrame,
+                    text='Source: '
+                ).grid(row=0, column=0)
+                # Only show "Source + Film" label if a film file has been uploaded for this tab
+                if hasattr(TabList[num][5], 'film_file') and os.path.isfile(TabList[num][5].film_file):
+                    tk.Label(
+                        TabList[num][1].ResultFrame,
+                        text='Source + Film: '
+                    ).grid(row=1, column=0)
+                Result_Button = tk.Checkbutton(
+                    TabList[num][1].ResultFrame,
+                    variable=TabList[num][1].Var_Data[j],
+                    onvalue=1, offvalue=-1,
+                    text='Centroid: ' + str("{:.1f}".format(values[j][0]))
+                )
+                Result_Button.grid(row=j, column=1)
+                Result_Button.select()
+                tk.Label(
+                    TabList[num][1].ResultFrame,
+                    text='\t \u03C3 =  ' + str("{:.1f}".format(values[j][2]))
+                ).grid(row=j, column=2)
+            else:
+                Result_Button = tk.Checkbutton(
+                    TabList[num][1].ResultFrame,
+                    variable=TabList[num][1].Var_Data[j],
+                    onvalue=1, offvalue=-1,
+                    text='Centroid: ' + str("{:.1f}".format(values[j][0]))
+                )
+                Result_Button.grid(row=j, column=0)
+                Result_Button.select()
+                tk.Label(
+                    TabList[num][1].ResultFrame,
+                    text='\t \u03C3 =  ' + str("{:.1f}".format(values[j][2]))
+                ).grid(row=j, column=1)
+                tk.Label(
+                    TabList[num][1].ResultFrame,
+                    text='\t \u03C3/\u221aN =  ' + str("{:.3f}".format(values[j][1]))
+                ).grid(row=j, column=2)
+            
     # Standard: expects channel and counts
     else:
         values = File_Reader(TabList[num][3], ',', 'No', 'No')
@@ -1260,7 +1285,12 @@ def ROI_Select_Alg():
 
         # Load counts from both files (source and film) using stored file paths
         counts = File_Reader(TabList[num][5].source_file, '0', 'Yes', 'No')
-        counts2 = File_Reader(TabList[num][5].film_file, '0', 'Yes', 'No')
+        # Only load film counts if a film file has been uploaded for this tab
+        if hasattr(TabList[num][5], 'film_file') and os.path.isfile(TabList[num][5].film_file):
+            counts2 = File_Reader(TabList[num][5].film_file, '0', 'Yes', 'No')
+        else:
+            counts2 = None
+
 
     # Hide ROI 2–6 Entry widgets
         for i in range(1, min(6, len(TabList[num][1].ROIdown_entries))):

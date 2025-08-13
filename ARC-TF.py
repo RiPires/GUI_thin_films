@@ -28,6 +28,7 @@
 
 ## ------------------------------- Import necessary librarires ---------------------------------- ##
 import tkinter as tk
+import pandas as pd
 from tkinter import ttk
 from tkinter import filedialog as fd
 from PIL import ImageTk, Image
@@ -51,6 +52,10 @@ from Include.Eloss import*
 from Include.Thick import*
 from Include.remove_file import*
 from Include.clear_frame import*
+from XRA.GaussianFit import gaussian, gaussian_integral_erf
+from scipy.optimize import curve_fit
+
+
 ## ---------------------------------------------------------------------------------------------- ##
 
 #####################################################
@@ -767,6 +772,45 @@ def Calculate_Thickness():
     return
 
 #########################################
+
+# Load table (can be xls/xlsx or csv/txt)
+df_xra = pd.read_csv("Files/xra.txt", sep="\t")
+films_list = df_xra["Element"].dropna().tolist()
+sources = list(df_xra.columns[4:]) #columns after 5th
+sources = [col.replace("mu ", "").replace(" K_alpha", "") for col in sources]
+
+def get_selected_film(num):
+    """Return the film material currently selected in the ROI frame OptionMenu."""
+    return TabList[num][5].film_data.get()
+
+
+# This replaces select_source()
+def get_selected_source(num):
+    """Return the source material currently selected in the ROI frame OptionMenu."""
+    return TabList[num][5].source_data.get()
+
+
+def get_mu_from_table(film_name, source_name):
+    """Get linear attenuation coefficient μ from table: density × mass coefficient."""
+    row = df_xra.loc[df_xra["Element"] == film_name]
+    if row.empty:
+        raise ValueError(f"Film {film_name} not found in table.")
+
+    density = float(row["p (g/cm^3)"])
+    col_name = f"mu {source_name} K_alpha"
+    if col_name not in df_xra.columns:
+        raise ValueError(f"Source {source_name} not found in table.")
+
+    mass_coeff = float(row[col_name])
+    return density * mass_coeff  # μ in cm^-1
+
+def run_thickness_calc():
+    mu = get_mu_from_table(TabList[Current_Tab()][5].film_material,
+                       TabList[Current_Tab()][5].source_material)
+
+
+
+#########################################
 # Displays algorithm results in the GUI #
 #########################################
 def ResultManager():
@@ -822,6 +866,15 @@ def ResultManager():
                     TabList[num][1].ResultFrame,
                     text='\t \u03C3 =  ' + str("{:.1f}".format(values[j][2]))
                 ).grid(row=j, column=2)
+                tk.Label(
+                    TabList[num][1].ResultFrame,
+                    text='\t Area = ' + str("{:.1f}".format(values[j][3]))
+                ).grid(row=j, column=3)
+                TabList[num][5].film_data = tk.StringVar(value="Films")
+                tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].film_data, *films_list).grid(row=2, column=1)
+                TabList[num][5].source_data = tk.StringVar(value="Sources")
+                tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].source_data, *sources).grid(row=2, column=2)
+                tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc).grid(row=2, column=4)
             else:
                 Result_Button = tk.Checkbutton(
                     TabList[num][1].ResultFrame,
@@ -1330,8 +1383,8 @@ def ROI_Select_Alg():
 
     for idx, (d, u) in enumerate(zip(roi_down, roi_up)):
         try:
-            x1 = float(d)
-            x2 = float(u)
+            x1 = int(d)
+            x2 = int(u)
         except (ValueError, TypeError):
             tk.messagebox.showerror("Error", f"Invalid ROI input at peak {idx+1}: \nROId = {d}, ROIu = {u}")
             return
@@ -1340,11 +1393,33 @@ def ROI_Select_Alg():
             tk.messagebox.showerror("Error", f"Invalid ROI range at peak {idx+1}: \nx1 = {x1}, x2 = {x2} "
                                 f"\nUpper bound must be greater than lower bound and difference must be at least 2.")
             return
+        roi_channels = list(range(x1, x2+1))
+        roi_counts = counts[x1:x2+1]
+
+        popt_source, _ = curve_fit(
+            gaussian,
+            roi_channels,
+            roi_counts,
+            p0=[max(roi_counts), roi_channels[np.argmax(roi_counts)], 1, min(roi_counts)]
+        )
+        area_source = gaussian_integral_erf(*popt_source, x1, x2)
 
     # Analyze the counts within each ROI to get centroids, uncertainties, and sigma/sqrt(N)
     cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
     if counts2 is not None:
         cents2, errs2, sigmas2 = Analyze(counts2, roi_down, roi_up)
+        for (d, u) in zip(roi_down, roi_up):
+            x1, x2 = int(d), int(u)
+            roi_channels = list(range(x1, x2 + 1))
+            roi_counts2 = counts2[x1:x2 + 1]
+
+            popt_film, _ = curve_fit(
+                gaussian,
+                roi_channels,
+                roi_counts2,
+                p0=[max(roi_counts2), roi_channels[np.argmax(roi_counts2)], 1, min(roi_counts2)]
+            )
+            areas_film = gaussian_integral_erf(*popt_film, x1, x2)
     else:
         cents2, errs2, sigmas2 = [], [], [] #when non-XRA tab
 
@@ -1352,15 +1427,15 @@ def ROI_Select_Alg():
     if os.path.isfile(TabList[num][3]):
         with open(TabList[num][3], 'a') as results:
             for i in range(len(cents)):
-                results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n")
+                results.write(f"{cents[i]},{errs[i]},{sigmas[i]},{area_source}\n")
             for i in range(len(cents2)):
-                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]}\n")
+                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film}\n")
     else:
         with open(TabList[num][3], 'w') as results:
             for i in range(len(cents)):
-                results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n")
+                results.write(f"{cents[i]},{errs[i]},{sigmas[i]},{area_source}\n")
             for i in range(len(cents2)):
-                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]}\n")
+                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film}\n")
 
     # Update the results display in the GUI
     ResultManager()

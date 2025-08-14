@@ -6,7 +6,6 @@ from matplotlib import pyplot as plt
 from math import erf, sqrt, pi
 import csv
 
-
 def load_mca_data(filename):
     with open(filename, 'r', encoding='latin1') as file:
         lines = file.readlines()
@@ -21,8 +20,6 @@ def load_mca_data(filename):
             data.append(float(parts[0]))
     return data
 
-
-import csv
 
 def get_measurement_time(filename):
     with open(filename, 'r', encoding='latin1', newline='') as file:  # newline='' for csv

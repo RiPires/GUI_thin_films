@@ -242,10 +242,12 @@ def File_Reader(Document, Separator, Decimal, Upload):
 
     # If needed, update GUI with the "measurement live-time" value from line 9
     if Upload == 'Yes':
-        TabList[num][1].Real_Time.set(lines[8] + ' s')
+        time = int(float(lines[8][lines[8].find('- ') + 2:]))
+        TabList[num][1].Real_Time.set('Real time: ' + str(time) + ' s')
 
     if Upload == 'second_file': # for adding the real-time from the source+film file
-        TabList[num][1].Real_Time_2.set(lines[8] + ' s')
+        time2 = int(float(lines[8][lines[8].find('- ') + 2:]))
+        TabList[num][1].Real_Time_2.set('Real time: ' + str(time2) + ' s')
 
     start = 12
     try:
@@ -773,25 +775,23 @@ def Calculate_Thickness():
 
 #########################################
 
-# Load table (can be xls/xlsx or csv/txt)
-df_xra = pd.read_csv("Files/xra.txt", sep="\t")
-films_list = df_xra["Element"].dropna().tolist()
+# Load table (xra.txt file)
+df_xra = pd.read_csv("Files/xra.txt", sep="\t") 
+films_list = df_xra["Element"].dropna().tolist() #takes the film materials
 sources = list(df_xra.columns[4:]) #columns after 5th
 sources = [col.replace("mu ", "").replace(" K_alpha", "") for col in sources]
 
 def get_selected_film(num):
-    """Return the film material currently selected in the ROI frame OptionMenu."""
+    # Return the film material currently selected in the ROI frame OptionMenu.
     return TabList[num][5].film_data.get()
 
-
-# This replaces select_source()
 def get_selected_source(num):
-    """Return the source material currently selected in the ROI frame OptionMenu."""
+    #Return the source material currently selected in the ROI frame OptionMenu.
     return TabList[num][5].source_data.get()
 
 
 def get_mu_from_table(film_name, source_name):
-    """Get linear attenuation coefficient μ from table: density × mass coefficient."""
+    #Get linear attenuation coefficient mu from table: density x mass coefficient.
     row = df_xra.loc[df_xra["Element"] == film_name]
     if row.empty:
         raise ValueError(f"Film {film_name} not found in table.")
@@ -802,9 +802,9 @@ def get_mu_from_table(film_name, source_name):
         raise ValueError(f"Source {source_name} not found in table.")
 
     mass_coeff = float(row[col_name])
-    return density * mass_coeff  # μ in cm^-1
+    return density * mass_coeff  # mu in cm^-1
 
-def run_thickness_calc():
+def run_thickness_calc(): #NOT READY yet
     mu = get_mu_from_table(TabList[Current_Tab()][5].film_material,
                        TabList[Current_Tab()][5].source_material)
 
@@ -874,7 +874,7 @@ def ResultManager():
                 tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].film_data, *films_list).grid(row=2, column=1)
                 TabList[num][5].source_data = tk.StringVar(value="Sources")
                 tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].source_data, *sources).grid(row=2, column=2)
-                tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc).grid(row=2, column=4)
+                tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc).grid(row=2, column=4) #command not ready YET
             else:
                 Result_Button = tk.Checkbutton(
                     TabList[num][1].ResultFrame,
@@ -1400,7 +1400,7 @@ def ROI_Select_Alg():
             gaussian,
             roi_channels,
             roi_counts,
-            p0=[max(roi_counts), roi_channels[np.argmax(roi_counts)], 1, min(roi_counts)]
+            p0=[max(roi_counts), roi_channels[np.argmax(roi_counts)], 1, min(roi_counts)], maxfev = 500000
         )
         area_source = gaussian_integral_erf(*popt_source, x1, x2)
 
@@ -1417,7 +1417,8 @@ def ROI_Select_Alg():
                 gaussian,
                 roi_channels,
                 roi_counts2,
-                p0=[max(roi_counts2), roi_channels[np.argmax(roi_counts2)], 1, min(roi_counts2)]
+                p0=[max(roi_counts2), roi_channels[np.argmax(roi_counts2)], 1, min(roi_counts2)],
+                maxfev = 50000
             )
             areas_film = gaussian_integral_erf(*popt_film, x1, x2)
     else:

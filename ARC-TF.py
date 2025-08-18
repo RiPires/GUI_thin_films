@@ -255,13 +255,11 @@ def File_Reader(Document, Separator, Decimal, Upload):
     except StopIteration:
         end = len(lines)  # fallback if <<END>> not found
 
-
     # Slice the lines to desired range
     if lines and lines[0].strip() == "<<PMCA SPECTRUM>>":
         lines = lines[start:end]  # MCA file → skip header
     else:
         lines = lines[:end]       # Other file → no header skip
-
 
     # If it's a 2D file (e.g. table with multiple columns)
     if Separator != '0':
@@ -805,8 +803,10 @@ def get_mu_from_table(film_name, source_name):
     return density * mass_coeff  # mu in cm^-1
 
 def run_thickness_calc(): #NOT READY yet
-    mu = get_mu_from_table(TabList[Current_Tab()][5].film_material,
-                       TabList[Current_Tab()][5].source_material)
+    mu = get_mu_from_table(TabList[Current_Tab()][5].film_data.get(),
+                       TabList[Current_Tab()][5].source_data.get())
+    
+    TabList[Current_Tab()][1].mu_label.config(text=f"μ = {mu:.3f} cm⁻¹")
 
 
 
@@ -871,10 +871,16 @@ def ResultManager():
                     text='\t Area = ' + str("{:.1f}".format(values[j][3]))
                 ).grid(row=j, column=3)
                 TabList[num][5].film_data = tk.StringVar(value="Films")
-                tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].film_data, *films_list).grid(row=2, column=1)
+                film_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].film_data, *films_list)
+                film_menu.config(width=6)   
+                film_menu.grid(row=2, column=1)
                 TabList[num][5].source_data = tk.StringVar(value="Sources")
-                tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].source_data, *sources).grid(row=2, column=2)
+                source_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].source_data, *sources)
+                source_menu.config(width=6)
+                source_menu.grid(row=2, column=2)
                 tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc).grid(row=2, column=4) #command not ready YET
+                TabList[num][1].mu_label = tk.Label(TabList[num][1].ResultFrame, text="μ ")
+                TabList[num][1].mu_label.grid(row=3, column=4, pady=5)
             else:
                 Result_Button = tk.Checkbutton(
                     TabList[num][1].ResultFrame,
@@ -1301,6 +1307,48 @@ def Threshold_Alg():
 # ROI_Select_Alg: Detects peaks within user-defined ROIs and records their     #
 # centroids, uncertainties, and sigma/sqrt(N) for the ROI Select algorithm.    #
 ################################################################################
+
+def analyze_gaussian(counts, roi_down, roi_up):
+    """
+    Analyze the counts within each ROI to fit a Gaussian and extract centroids, uncertainties, and sigma/sqrt(N).
+    Returns centroids, uncertainties, sigma, and areas for each ROI.
+    """
+    cents = []
+    errs = []
+    sigmas = []
+    areas = []  # To store areas for each (Source and Source + Film) ROI
+
+    for (d, u) in zip(roi_down, roi_up):
+        x1 = int(d)
+        x2 = int(u)
+        roi_channels = list(range(x1, x2 + 1))
+        roi_counts = counts[x1:x2 + 1]
+
+        # Perform Gaussian fitting
+        popt_source, _ = curve_fit(
+            gaussian,
+            roi_channels,
+            roi_counts,
+            p0=[max(roi_counts), roi_channels[np.argmax(roi_counts)], 1, min(roi_counts)], 
+            maxfev=500000
+        )
+        
+        # Extract mean (centroid), sigma, and calculate error
+        mean = popt_source[1]  # Mean (centroid) from Gaussian fit
+        sigma = popt_source[2]  # Sigma from Gaussian fit
+        error = sigma / np.sqrt(len(roi_counts))  # Uncertainty (sigma/√N)
+        
+        cents.append(mean)
+        errs.append(error)
+        sigmas.append(sigma)
+        
+        # Calculate the area under the Gaussian curve
+        area = gaussian_integral_erf(*popt_source, x1, x2)
+        areas.append(area)
+
+    return cents, errs, sigmas, areas
+
+################################################################################
 def ROI_Select_Alg():
     """
     Detects and analyzes peaks within user-defined Regions of Interest (ROIs)
@@ -1381,62 +1429,39 @@ def ROI_Select_Alg():
     print("roi_up:", roi_up)
     print("Number of ROIs passed to Analyze:", len(roi_down))
 
-    for idx, (d, u) in enumerate(zip(roi_down, roi_up)):
-        try:
-            x1 = int(d)
-            x2 = int(u)
-        except (ValueError, TypeError):
-            tk.messagebox.showerror("Error", f"Invalid ROI input at peak {idx+1}: \nROId = {d}, ROIu = {u}")
-            return
+    if TabList[num][1].tab_kind == 5:  # If it's XRA, use Gaussian fitting
+        cents, errs, sigmas, areas_source = analyze_gaussian(counts, roi_down, roi_up)
+        print("cents:", cents)
+        
+        if counts2 is not None:
+            cents2, errs2, sigmas2, areas_film = analyze_gaussian(counts2, roi_down, roi_up)
+        else:
+            cents2, errs2, sigmas2, areas_film = [], [], [], []  # If no film data, leave it empty
 
-        if x2 <= x1 or (x2 - x1) < 2:
-            tk.messagebox.showerror("Error", f"Invalid ROI range at peak {idx+1}: \nx1 = {x1}, x2 = {x2} "
-                                f"\nUpper bound must be greater than lower bound and difference must be at least 2.")
-            return
-        roi_channels = list(range(x1, x2+1))
-        roi_counts = counts[x1:x2+1]
-
-        popt_source, _ = curve_fit(
-            gaussian,
-            roi_channels,
-            roi_counts,
-            p0=[max(roi_counts), roi_channels[np.argmax(roi_counts)], 1, min(roi_counts)], maxfev = 500000
-        )
-        area_source = gaussian_integral_erf(*popt_source, x1, x2)
-
-    # Analyze the counts within each ROI to get centroids, uncertainties, and sigma/sqrt(N)
-    cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
-    if counts2 is not None:
-        cents2, errs2, sigmas2 = Analyze(counts2, roi_down, roi_up)
-        for (d, u) in zip(roi_down, roi_up):
-            x1, x2 = int(d), int(u)
-            roi_channels = list(range(x1, x2 + 1))
-            roi_counts2 = counts2[x1:x2 + 1]
-
-            popt_film, _ = curve_fit(
-                gaussian,
-                roi_channels,
-                roi_counts2,
-                p0=[max(roi_counts2), roi_channels[np.argmax(roi_counts2)], 1, min(roi_counts2)],
-                maxfev = 50000
-            )
-            areas_film = gaussian_integral_erf(*popt_film, x1, x2)
     else:
-        cents2, errs2, sigmas2 = [], [], [] #when non-XRA tab
+        cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
 
     # Write results to file: append if file exists, otherwise create new
     if os.path.isfile(TabList[num][3]):
         with open(TabList[num][3], 'a') as results:
             for i in range(len(cents)):
-                results.write(f"{cents[i]},{errs[i]},{sigmas[i]},{area_source}\n")
-            for i in range(len(cents2)):
-                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film}\n")
+                if TabList[num][1].tab_kind == 5:
+                    results.write(f"{cents[i]},{errs[i]},{sigmas[i]},{areas_source[i]}\n")
+                else:
+                    results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n")
+            if counts2 is not None:   
+                for i in range(len(cents2)):
+                    results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film[i]}\n")
     else:
         with open(TabList[num][3], 'w') as results:
             for i in range(len(cents)):
-                results.write(f"{cents[i]},{errs[i]},{sigmas[i]},{area_source}\n")
-            for i in range(len(cents2)):
-                results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film}\n")
+                if TabList[num][1].tab_kind == 5:
+                    results.write(f"{cents[i]},{errs[i]},{sigmas[i]},{areas_source[i]}\n")
+                else:
+                    results.write(f"{cents[i]},{errs[i]},{sigmas[i]}\n") 
+            if counts2 is not None:
+                for i in range(len(cents2)):
+                    results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film[i]}\n")
 
     # Update the results display in the GUI
     ResultManager()
@@ -1552,10 +1577,10 @@ def DataUploader():
             if not filename:
                 return
 
-            file = File_Reader(filename, '0', 'string', 'Yes')
-            TabList[num][5].source_data = file
+            CountsNumberList = File_Reader(filename, '0', 'string', 'Yes')
+            TabList[num][5].source_data = CountsNumberList
             TabList[num][5].source_file = filename
-            TabList[num][5].Structure(file, filename)
+            TabList[num][5].Structure(CountsNumberList, filename)
             TabList[num][5].subplots()
             Tabs.RenameTab(filename.split('/')[-1])
 
@@ -1597,10 +1622,10 @@ def DataUploader():
 
         else:
             # Read the uploaded file's contents using File_Reader function
-            file = File_Reader(filename, '0', 'string', 'Yes')
+            CountsNumberList = File_Reader(filename, '0', 'string', 'Yes')
 
             # Process the file structure and generate the initial plot
-            TabList[num][5].Structure(file, filename)
+            TabList[num][5].Structure(CountsNumberList, filename)
             TabList[num][5].subplots()
 
             # Retrieve the current algorithm selection and apply it if needed
@@ -2883,7 +2908,7 @@ class Plot:
         figure_canvas (FigureCanvasTkAgg): Canvas for embedding the plot in Tkinter.
         axes (Axes): Matplotlib Axes object for plotting.
     """
-    def Structure(self, File, Name, File2 = None):
+    def Structure(self, CountsNumberList, Name, File2 = None):
         # Initialize lists for channel and counts
         self.Channel = []
         self.Counts = []
@@ -2905,11 +2930,11 @@ class Plot:
 
         # If the file is an .mca file, process accordingly (specific to AEL machine format)
         if Name[-4:] == ".mca":
-            for i in range(12, len(File) - 1):
-                self.Counts.append(int(File[i]))
+            for i in range(len(CountsNumberList) - 1):
+                self.Counts.append(int(CountsNumberList[i]))
                 total_sum += self.Counts[j]
-                self.Channel.append(i - 11)
-                Data.write(str(self.Counts[i - 12]) + "\n")
+                self.Channel.append(i + 1)
+                Data.write(str(self.Counts[i]) + "\n")
                 j += 1
         
 
@@ -2938,9 +2963,9 @@ class Plot:
 
         # If this is an XRA tab and File2 is provided, parse second dataset
         if getattr(TabList[num][1], 'tab_kind', None) == 5 and File2:
-            for i in range(12, len(File2) - 1):
+            for i in range(len(File2) - 1):
                 self.Counts2.append(int(File2[i]))
-                self.Channel2.append(i - 11)
+                self.Channel2.append(i + 1)
 
         # Create the matplotlib figure and embed it in the Tkinter frame
         self.figure = Figure(figsize=(6, 4), dpi=100)

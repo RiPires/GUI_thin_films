@@ -77,7 +77,7 @@ def film_thickness(N, N0, Nb, mu):
         print("i am here")
         return float('nan')
     
-    return -1.0 / mu * np.log(N_net / N0_net)
+    return 1.0 / mu * np.log(N0_net / N_net)
 
 def uncertainty(N, N0, Nb, mu, time_source, time_film, time_bkg):
     I_net = N/time_film - Nb/time_bkg

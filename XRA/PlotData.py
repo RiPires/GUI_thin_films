@@ -44,6 +44,7 @@ def PlotData(File):
     return
 ##################################################
 
+PlotData('Data/NoFilm_2h_17Jul_CuSource.mca')
 PlotData('Data/CuSource_01Aug.mca')
 PlotData('Data/Al_foil_CuSource_01Aug.mca')
 #PlotData('Data/NoFilm_for_C12_4h_2.mca')

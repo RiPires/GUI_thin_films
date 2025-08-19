@@ -54,6 +54,7 @@ from Include.remove_file import*
 from Include.clear_frame import*
 from XRA.GaussianFit import gaussian, gaussian_integral_erf
 from scipy.optimize import curve_fit
+from XRA.thickness import film_thickness, uncertainty
 
 
 ## ---------------------------------------------------------------------------------------------- ##
@@ -248,6 +249,10 @@ def File_Reader(Document, Separator, Decimal, Upload):
     if Upload == 'second_file': # for adding the real-time from the source+film file
         time2 = int(float(lines[8][lines[8].find('- ') + 2:]))
         TabList[num][1].Real_Time_2.set('Real time: ' + str(time2) + ' s')
+
+    if Upload == 'third_file': # for adding the real-time from the background file
+        time3 = int(float(lines[8][lines[8].find('- ') + 2:]))
+        TabList[num][1].Real_Time_3.set('Real time: ' + str(time3) + ' s')    
 
     start = 12
     try:
@@ -792,21 +797,40 @@ def get_mu_from_table(film_name, source_name):
     #Get linear attenuation coefficient mu from table: density x mass coefficient.
     row = df_xra.loc[df_xra["Element"] == film_name]
     if row.empty:
-        raise ValueError(f"Film {film_name} not found in table.")
+        raise ValueError("Film not found in table.")
 
     density = float(row["p (g/cm^3)"])
     col_name = f"mu {source_name} K_alpha"
     if col_name not in df_xra.columns:
-        raise ValueError(f"Source {source_name} not found in table.")
+        raise ValueError("Source not found in table.")
 
     mass_coeff = float(row[col_name])
     return density * mass_coeff  # mu in cm^-1
 
 def run_thickness_calc(): #NOT READY yet
-    mu = get_mu_from_table(TabList[Current_Tab()][5].film_data.get(),
-                       TabList[Current_Tab()][5].source_data.get())
+    num = Current_Tab()
+
+    mu = get_mu_from_table(TabList[num][5].film_data.get(),
+                       TabList[num][5].source_data.get())
     
     TabList[Current_Tab()][1].mu_label.config(text=f"μ = {mu:.3f} cm⁻¹")
+
+    N = float(TabList[num][1].areas_film[0])   # area of source+film ROI
+    N0 = float(TabList[num][1].areas_source[0]) # area of source ROI
+    Nb = float(TabList[num][1].areas_bkg[0]) if getattr(TabList[num][1], 'areas_bkg', None) else 0 
+    # area of background ROI
+    rt_str = TabList[num][1].Real_Time.get()
+    time1 = float(rt_str.split(':')[1].strip().split()[0])
+    rt_str2 = TabList[num][1].Real_Time_2.get()
+    time2 = float(rt_str.split(':')[1].strip().split()[0])
+    rt_str3 = TabList[num][1].Real_Time_3.get()
+    time3 = float(rt_str.split(':')[1].strip().split()[0])
+
+    thickness = film_thickness(N, N0, Nb, mu)
+    uncertainty_value = uncertainty(N, N0, Nb, mu, time1, time2, time3)
+
+    TabList[num][1].thickness_label.config(text=f"Thickness = {thickness:.1f} nm")
+    TabList[num][1].uncertainty_value_label.config(text=f"Uncertainty = {uncertainty_value:.1f} nm")
 
 
 
@@ -854,6 +878,13 @@ def ResultManager():
                         TabList[num][1].ResultFrame,
                         text='Source + Film: '
                     ).grid(row=1, column=0)
+
+                if hasattr(TabList[num][5], 'bkg_file') and os.path.isfile(TabList[num][5].bkg_file):
+                    tk.Label(
+                        TabList[num][1].ResultFrame,
+                        text='Background: '
+                    ).grid(row=2, column=0)
+
                 Result_Button = tk.Checkbutton(
                     TabList[num][1].ResultFrame,
                     variable=TabList[num][1].Var_Data[j],
@@ -864,23 +895,27 @@ def ResultManager():
                 Result_Button.select()
                 tk.Label(
                     TabList[num][1].ResultFrame,
-                    text='\t \u03C3 =  ' + str("{:.1f}".format(values[j][2]))
+                    text='\t \u03C3 =  ' + str("{:.2f}".format(values[j][2]))
                 ).grid(row=j, column=2)
                 tk.Label(
                     TabList[num][1].ResultFrame,
-                    text='\t Area = ' + str("{:.1f}".format(values[j][3]))
+                    text='\t Area = ' + str("{:.6f}".format(values[j][3]))
                 ).grid(row=j, column=3)
                 TabList[num][5].film_data = tk.StringVar(value="Films")
                 film_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].film_data, *films_list)
                 film_menu.config(width=6)   
-                film_menu.grid(row=2, column=1)
+                film_menu.grid(row=3, column=1)
                 TabList[num][5].source_data = tk.StringVar(value="Sources")
                 source_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].source_data, *sources)
                 source_menu.config(width=6)
-                source_menu.grid(row=2, column=2)
-                tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc).grid(row=2, column=4) #command not ready YET
-                TabList[num][1].mu_label = tk.Label(TabList[num][1].ResultFrame, text="μ ")
-                TabList[num][1].mu_label.grid(row=3, column=4, pady=5)
+                source_menu.grid(row=3, column=2)
+                tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc).grid(row=3, column=4) #command not ready YET
+                TabList[num][1].mu_label = tk.Label(TabList[num][1].ResultFrame)
+                TabList[num][1].mu_label.grid(row=4, column=4, pady=5)
+                TabList[num][1].thickness_label = tk.Label(TabList[num][1].ResultFrame)
+                TabList[num][1].thickness_label.grid(row=5, column=4, padx=5, pady=5)
+                TabList[num][1].uncertainty_value_label = tk.Label(TabList[num][1].ResultFrame)
+                TabList[num][1].uncertainty_value_label.grid(row=6, column=4, padx=5, pady=5)
             else:
                 Result_Button = tk.Checkbutton(
                     TabList[num][1].ResultFrame,
@@ -1386,11 +1421,29 @@ def ROI_Select_Alg():
 
         # Load counts from both files (source and film) using stored file paths
         counts = File_Reader(TabList[num][5].source_file, '0', 'Yes', 'No')
+        rt_str = TabList[num][1].Real_Time.get()
+        real_time1 = float(rt_str.split(':')[1].strip().split()[0])  # in seconds
+
+        # Convert counts to count rate
+        count_rate = [c / real_time1 for c in counts]
+        
         # Only load film counts if a film file has been uploaded for this tab
         if hasattr(TabList[num][5], 'film_file') and os.path.isfile(TabList[num][5].film_file):
             counts2 = File_Reader(TabList[num][5].film_file, '0', 'Yes', 'No')
+            rt_str2 = TabList[num][1].Real_Time_2.get()
+            real_time2 = float(rt_str2.split(':')[1].strip().split()[0])  # in seconds
+            count_rate2 = [c / real_time2 for c in counts2]
         else:
             counts2 = None
+
+        # Load background counts if a background file has been uploaded for this tab    
+        if hasattr(TabList[num][5], 'bkg_file') and os.path.isfile(TabList[num][5].bkg_file):
+            counts3 = File_Reader(TabList[num][5].bkg_file, '0', 'Yes', 'No')
+            rt_str3 = TabList[num][1].Real_Time_3.get()
+            real_time3 = float(rt_str3.split(':')[1].strip().split()[0])  # in seconds
+            count_rate3 = [c / real_time3 for c in counts3]
+        else:
+            counts3 = None
 
 
     # Hide ROI 2–6 Entry widgets
@@ -1411,6 +1464,7 @@ def ROI_Select_Alg():
         # Use all 6 if not XRA
         counts = File_Reader(TabList[num][2], '0', 'Yes', 'No')
         counts2 = None
+        counts3 = None
         roi_down = [TabList[num][1].ROIdown1.get(),
                     TabList[num][1].ROIdown2.get(),
                     TabList[num][1].ROIdown3.get(),
@@ -1430,13 +1484,19 @@ def ROI_Select_Alg():
     print("Number of ROIs passed to Analyze:", len(roi_down))
 
     if TabList[num][1].tab_kind == 5:  # If it's XRA, use Gaussian fitting
-        cents, errs, sigmas, areas_source = analyze_gaussian(counts, roi_down, roi_up)
-        print("cents:", cents)
+        cents, errs, sigmas, areas_source = analyze_gaussian(count_rate, roi_down, roi_up)
+        TabList[num][1].areas_source = areas_source
         
         if counts2 is not None:
-            cents2, errs2, sigmas2, areas_film = analyze_gaussian(counts2, roi_down, roi_up)
+            cents2, errs2, sigmas2, areas_film = analyze_gaussian(count_rate2, roi_down, roi_up)
+            TabList[num][1].areas_film = areas_film
         else:
             cents2, errs2, sigmas2, areas_film = [], [], [], []  # If no film data, leave it empty
+        if counts3 is not None:
+            cents3, errs3, sigmas3, areas_bkg = analyze_gaussian(count_rate3, roi_down, roi_up)
+            TabList[num][1].areas_bkg = areas_bkg
+        else:
+            cents3, errs3, sigmas3, areas_bkg = [], [], [], []
 
     else:
         cents, errs, sigmas = Analyze(counts, roi_down, roi_up)
@@ -1452,6 +1512,9 @@ def ROI_Select_Alg():
             if counts2 is not None:   
                 for i in range(len(cents2)):
                     results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film[i]}\n")
+            if counts3 is not None:
+                for i in range(len(cents3)):
+                    results.write(f"{cents3[i]},{errs3[i]},{sigmas3[i]},{areas_bkg[i]}\n")        
     else:
         with open(TabList[num][3], 'w') as results:
             for i in range(len(cents)):
@@ -1462,6 +1525,9 @@ def ROI_Select_Alg():
             if counts2 is not None:
                 for i in range(len(cents2)):
                     results.write(f"{cents2[i]},{errs2[i]},{sigmas2[i]},{areas_film[i]}\n")
+            if counts3 is not None:
+                for i in range(len(cents3)):
+                    results.write(f"{cents3[i]},{errs3[i]},{sigmas3[i]},{areas_bkg[i]}\n")           
 
     # Update the results display in the GUI
     ResultManager()
@@ -1607,8 +1673,31 @@ def DataUploader():
             TabList[num][5].subplots()
             Tabs.RenameTab(film_file.split('/')[-1])
 
+        def upload_bkg():
+            mode_window.destroy()
+            bkg_file = fd.askopenfilename(title='Open Background File', filetypes=[('Text Files', '*.mca'), ('All Files', '*.*')])
+            if not bkg_file:
+                return
+
+            try:
+                source_data = TabList[num][5].source_data
+                source_file = TabList[num][5].source_file
+            except AttributeError:
+                tk.messagebox.showerror("Missing Source File", "Please upload a Source file first using 'Source Only'.")
+                return
+
+            film_data = getattr(TabList[num][5], 'film_data', None)
+
+            bkg_data = File_Reader(bkg_file, '0', 'string', 'third_file')
+            TabList[num][5].bkg_data = bkg_data
+            TabList[num][5].bkg_file = bkg_file
+            TabList[num][5].Structure(source_data, source_file, film_data, bkg_data)            
+            TabList[num][5].subplots()
+            Tabs.RenameTab(bkg_file.split('/')[-1])
+
         tk.Button(mode_window, text="Source Only", command=upload_source_only).pack(padx=10, pady=5)
         tk.Button(mode_window, text="Source + Film", command=upload_film).pack(padx=10, pady=5)
+        tk.Button(mode_window, text="Background", command=upload_bkg).pack(padx=10, pady=5)
 
     # All other tabs
     else: 
@@ -2619,6 +2708,7 @@ class Tabs:
 
         self.Real_Time = tk.StringVar()
         self.Real_Time_2 = tk.StringVar()
+        self.Real_Time_3 = tk.StringVar()
     
 
         #self.Total_Counts = tk.StringVar()
@@ -2908,17 +2998,18 @@ class Plot:
         figure_canvas (FigureCanvasTkAgg): Canvas for embedding the plot in Tkinter.
         axes (Axes): Matplotlib Axes object for plotting.
     """
-    def Structure(self, CountsNumberList, Name, File2 = None):
+    def Structure(self, CountsNumberList, Name, File2 = None, File3 = None):
         # Initialize lists for channel and counts
         self.Channel = []
-        self.Counts = []
+        self.CountsRate = []
         self.Channel2 = []
-        self.Counts2 = []
+        self.CountsRate2 = []
+        self.Channel3 = []
+        self.CountsRate3 = []
         self.line = []
 
         num = Current_Tab()
         total_sum = 0
-        total_sum2 = 0
         j = 0
 
         # Clear previous plot and set up the graphic frame
@@ -2928,30 +3019,39 @@ class Plot:
         # Open the data file for writing processed counts
         Data = open(TabList[num][2], "w")
 
+        rt1_str = TabList[num][1].Real_Time.get() # Get real time 1
+        rt2_str = TabList[num][1].Real_Time_2.get() # Get real time 2
+        rt3_str = TabList[num][1].Real_Time_3.get() # Get real time 3
+
+        real_time1 = float(rt1_str.split(':')[1].strip().split()[0]) # Extract time from string
+        real_time2 = float(rt2_str.split(':')[1].strip().split()[0]) if rt2_str else None # Extract time from string if available
+        real_time3 = float(rt3_str.split(':')[1].strip().split()[0]) if rt3_str else None
+
         # If the file is an .mca file, process accordingly (specific to AEL machine format)
         if Name[-4:] == ".mca":
             for i in range(len(CountsNumberList) - 1):
-                self.Counts.append(int(CountsNumberList[i]))
-                total_sum += self.Counts[j]
+                self.CountsRate.append(int(CountsNumberList[i])/ real_time1)
+                #total_sum += self.Counts[j]
                 self.Channel.append(i + 1)
-                Data.write(str(self.Counts[i]) + "\n")
+                Data.write(str(self.CountsRate[i]) + "\n")
                 j += 1
         
 
         Data.close()
 
         # Update total counts and display in the extra frame
-        #TabList[num][1].Total_Counts.set(total_sum)
         TabList[num][1].Extra_Frame.grid(column=0, row=1, sticky="nw")
         
         tk.Label(TabList[num][1].Extra_Frame, text="Source:").grid(row=0, column=0, sticky="w")
         tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
-        #tk.Label(TabList[num][1].Extra_Frame, text='Total: ' + str(TabList[num][1].Total_Counts.get())).grid(row=0, column=2, sticky="w")
         
         #For XRA tab, also show File 2 time
         if TabList[num][1].tab_kind == 5:
             tk.Label(TabList[num][1].Extra_Frame, text="Source+Film:").grid(row=1, column=0, sticky="w")
             tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time_2.get()).grid(row=1, column=1, sticky="w")
+            if File3 is not None:
+                tk.Label(TabList[num][1].Extra_Frame, text="Background:").grid(row=2, column=0, sticky="w")
+                tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time_3.get()).grid(row=2, column=1, sticky="w")
 
         # Set plot title based on tab type
         if TabTracker[num] < 0:
@@ -2964,8 +3064,13 @@ class Plot:
         # If this is an XRA tab and File2 is provided, parse second dataset
         if getattr(TabList[num][1], 'tab_kind', None) == 5 and File2:
             for i in range(len(File2) - 1):
-                self.Counts2.append(int(File2[i]))
+                self.CountsRate2.append(int(File2[i])/ real_time2)
                 self.Channel2.append(i + 1)
+        
+        if getattr(TabList[num][1], 'tab_kind', None) == 5 and File3:
+            for i in range(len(File3) - 1):
+                self.CountsRate3.append(int(File3[i])/ real_time3)
+                self.Channel3.append(i + 1)
 
         # Create the matplotlib figure and embed it in the Tkinter frame
         self.figure = Figure(figsize=(6, 4), dpi=100)
@@ -2975,15 +3080,18 @@ class Plot:
     def subplots(self):
         # Create the plot with channels on x-axis and counts on y-axis
         self.axes = self.figure.add_subplot()
-        self.axes.plot(self.Channel, self.Counts, '*', label='Source')
+        self.axes.plot(self.Channel, self.CountsRate, '*', label='Source')
 
         # If second dataset exists, plot it
-        if self.Counts2:
-            self.axes.plot(self.Channel2, self.Counts2, '+', label='Source + Film', color='red')
+        if self.CountsRate2:
+            self.axes.plot(self.Channel2, self.CountsRate2, '+', label='Source + Film', color='red')
+
+        if self.CountsRate3:
+            self.axes.plot(self.Channel3, self.CountsRate3, '-', label='Background', color='green')
 
         self.axes.set_title(self.Title)
         self.axes.set_xlabel('Channel')
-        self.axes.set_ylabel('Counts')
+        self.axes.set_ylabel('Counts Rate (counts/sec)')
         self.axes.legend()
 
         # Connect mouse click event for manual selection

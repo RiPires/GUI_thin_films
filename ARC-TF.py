@@ -810,10 +810,17 @@ def get_mu_from_table(film_name, source_name):
 def run_thickness_calc(): #NOT READY yet
     num = Current_Tab()
 
-    mu = get_mu_from_table(TabList[num][5].film_data.get(),
-                       TabList[num][5].source_data.get())
-    
-    TabList[Current_Tab()][1].mu_label.config(text=f"μ = {mu:.3f} cm⁻¹")
+    choice = TabList[num][5].options.get()
+    if choice == "Default":
+        mu = get_mu_from_table(TabList[num][5].film_data.get(),
+                        TabList[num][5].source_data.get())
+        
+        TabList[Current_Tab()][1].mu_label.config(text=f"μ = {mu:.3f} cm⁻¹")
+    elif choice == "User":
+        mu_str = TabList[num][1].mu_entry.get()
+        mu = float(mu_str)
+        TabList[Current_Tab()][1].mu_label.config(text=f"μ = {mu:.3f} cm⁻¹")
+
 
     N = float(TabList[num][1].areas_film[0])   # area of source+film ROI
     N0 = float(TabList[num][1].areas_source[0]) # area of source ROI
@@ -829,8 +836,8 @@ def run_thickness_calc(): #NOT READY yet
     thickness = film_thickness(N, N0, Nb, mu)
     uncertainty_value = uncertainty(N, N0, Nb, mu, time1, time2, time3)
 
-    TabList[num][1].thickness_label.config(text=f"Thickness = {thickness:.1f} nm")
-    TabList[num][1].uncertainty_value_label.config(text=f"Uncertainty = {uncertainty_value:.1f} nm")
+    result_text = f"Thickness = {thickness:.2f} ± {uncertainty_value:.2f} nm"
+    TabList[num][1].result_label.config(text=result_text)
 
 
 
@@ -857,6 +864,7 @@ def ResultManager():
         None
     """
     num = Current_Tab()
+    TabList[num][5].options_list = ["Default", "User"]
 
     ClearWidget('Results', 0)  # Reset previous results
     TabList[num][1].ResultFrame.grid(row=3, columnspan=2, pady=5)
@@ -868,54 +876,88 @@ def ResultManager():
         values = File_Reader(TabList[num][3], ',', 'Yes', 'No')
         for j in range(len(values)):
             if TabList[num][1].tab_kind == 5:
-                tk.Label(
-                    TabList[num][1].ResultFrame,
-                    text='Source: '
-                ).grid(row=0, column=0)
-                # Only show "Source + Film" label if a film file has been uploaded for this tab
-                if hasattr(TabList[num][5], 'film_file') and os.path.isfile(TabList[num][5].film_file):
+                if j == 0:
+                    tk.Label(TabList[num][1].ResultFrame, text='Source: ').grid(row=0, column=0)
+                if hasattr(TabList[num][5], 'film_file') and os.path.isfile(TabList[num][5].film_file) and j == 1:
+                    tk.Label(TabList[num][1].ResultFrame, text='  Source + Film:   ').grid(row=1, column=0)
+                if hasattr(TabList[num][5], 'bkg_file') and os.path.isfile(TabList[num][5].bkg_file) and j == 2:
+                    tk.Label(TabList[num][1].ResultFrame, text='Background: ').grid(row=2, column=0)
+
+                #Check if background is selected    
+                is_background = (hasattr(TabList[num][5], 'bkg_file') 
+                         and os.path.isfile(TabList[num][5].bkg_file) 
+                         and j == 2)
+
+                if not is_background:  
+                    # For source and film: centroid + sigma + area
+                    tk.Label(TabList[num][1].ResultFrame, text='Centroid: ' + str("{:.1f}".format(values[j][0]))
+                             ).grid(row=j, column=1)
+
                     tk.Label(
                         TabList[num][1].ResultFrame,
-                        text='Source + Film: '
-                    ).grid(row=1, column=0)
+                        text='\t \u03C3 =  ' + str("{:.2f}".format(values[j][2]))
+                        ).grid(row=j, column=2)
 
-                if hasattr(TabList[num][5], 'bkg_file') and os.path.isfile(TabList[num][5].bkg_file):
                     tk.Label(
-                        TabList[num][1].ResultFrame,
-                        text='Background: '
-                    ).grid(row=2, column=0)
+                    TabList[num][1].ResultFrame,
+                    text='\t Area = ' + str("{:.1f}".format(values[j][3]))
+                    ).grid(row=j, column=3)
 
-                Result_Button = tk.Checkbutton(
-                    TabList[num][1].ResultFrame,
-                    variable=TabList[num][1].Var_Data[j],
-                    onvalue=1, offvalue=-1,
-                    text='Centroid: ' + str("{:.1f}".format(values[j][0]))
-                )
-                Result_Button.grid(row=j, column=1)
-                Result_Button.select()
-                tk.Label(
-                    TabList[num][1].ResultFrame,
-                    text='\t \u03C3 =  ' + str("{:.2f}".format(values[j][2]))
-                ).grid(row=j, column=2)
-                tk.Label(
+                else:
+                    tk.Label(
                     TabList[num][1].ResultFrame,
                     text='\t Area = ' + str("{:.6f}".format(values[j][3]))
-                ).grid(row=j, column=3)
+                    ).grid(row=j, column=3)
+
+                tk.Label(TabList[num][1].ResultFrame, text='Attenuation: ').grid(row=4, column=0)
+                TabList[num][5].options = tk.StringVar(value="??")
+                options_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].options, *TabList[num][5].options_list)
+                options_menu.config(width=6)
+                options_menu.grid(row=4, column=1)
+
                 TabList[num][5].film_data = tk.StringVar(value="Films")
                 film_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].film_data, *films_list)
-                film_menu.config(width=6)   
-                film_menu.grid(row=3, column=1)
+                film_menu.config(width=6)
+
                 TabList[num][5].source_data = tk.StringVar(value="Sources")
                 source_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].source_data, *sources)
                 source_menu.config(width=6)
-                source_menu.grid(row=3, column=2)
-                tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc).grid(row=3, column=4) #command not ready YET
+
+                run_button = tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc)
                 TabList[num][1].mu_label = tk.Label(TabList[num][1].ResultFrame)
-                TabList[num][1].mu_label.grid(row=4, column=4, pady=5)
-                TabList[num][1].thickness_label = tk.Label(TabList[num][1].ResultFrame)
-                TabList[num][1].thickness_label.grid(row=5, column=4, padx=5, pady=5)
-                TabList[num][1].uncertainty_value_label = tk.Label(TabList[num][1].ResultFrame)
-                TabList[num][1].uncertainty_value_label.grid(row=6, column=4, padx=5, pady=5)
+                TabList[num][1].result_label = tk.Label(TabList[num][1].ResultFrame)
+                mu_text = tk.Label(TabList[num][1].ResultFrame, text='Enter the linear attenuation coefficient in cm⁻¹: ')
+                TabList[num][1].mu_entry = tk.Entry(TabList[num][1].ResultFrame)
+
+                
+                def update_visibility(*args):
+                    
+                    TabList[num][1].mu_label.grid_remove()
+                    TabList[num][1].result_label.grid_remove()
+                    mu_text.grid_remove()
+                    TabList[num][1].mu_entry.grid_remove()
+
+                    choice = TabList[num][5].options.get()
+                    if choice == "User":
+                        film_menu.grid_remove()
+                        source_menu.grid_remove()
+                        mu_text.grid(row=5, column=0, padx=5, pady=5)
+                        TabList[num][1].mu_entry.grid(row=5, column=1, padx=5, pady=5)
+                        run_button.grid(row=5, column=4)
+                        TabList[num][1].mu_label.grid(row=6, column=4, pady=5)
+                        TabList[num][1].result_label.grid(row=7, column=4, padx=5, pady=5)
+
+
+                    elif choice == "Default":
+                        film_menu.grid(row=5, column=1)
+                        source_menu.grid(row=5, column=2)
+                        run_button.grid(row=5, column=4)
+                        TabList[num][1].mu_label.grid(row=6, column=4, pady=5)
+                        TabList[num][1].result_label.grid(row=7, column=4, padx=5, pady=5)
+
+                TabList[num][5].options.trace_add("write", update_visibility)
+
+                update_visibility()
             else:
                 Result_Button = tk.Checkbutton(
                     TabList[num][1].ResultFrame,

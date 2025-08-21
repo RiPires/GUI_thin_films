@@ -52,7 +52,7 @@ from Include.Eloss import*
 from Include.Thick import*
 from Include.remove_file import*
 from Include.clear_frame import*
-from XRA.GaussianFit import gaussian, gaussian_integral_erf
+from XRA.GaussianFit import *
 from scipy.optimize import curve_fit
 from XRA.thickness import film_thickness, uncertainty
 
@@ -1385,6 +1385,7 @@ def Threshold_Alg():
 # centroids, uncertainties, and sigma/sqrt(N) for the ROI Select algorithm.    #
 ################################################################################
 
+
 def analyze_gaussian(counts, roi_down, roi_up):
     """
     Analyze the counts within each ROI to fit a Gaussian and extract centroids, uncertainties, and sigma/sqrt(N).
@@ -1487,8 +1488,7 @@ def ROI_Select_Alg():
         else:
             counts3 = None
 
-
-    # Hide ROI 2–6 Entry widgets
+        # Hide ROI 2–6 Entry widgets
         for i in range(1, min(6, len(TabList[num][1].ROIdown_entries))):
             try:
                 TabList[num][1].ROIdown_entries[i].grid_remove()
@@ -1528,7 +1528,13 @@ def ROI_Select_Alg():
     if TabList[num][1].tab_kind == 5:  # If it's XRA, use Gaussian fitting
         cents, errs, sigmas, areas_source = analyze_gaussian(count_rate, roi_down, roi_up)
         TabList[num][1].areas_source = areas_source
-        
+
+        ## Perform gaussian fit to the Source data
+        #sourceFitParams = gaussian_fit(gaussian, range(roi_down, roi_up), count_rate[roi_down:roi_up])
+        #channel_smooth = np.linspace(roi_down, roi_up, 500)
+        #source_fit = gaussian(channel_smooth, sourceFitParams)
+        #plot_gaussian(channel_smooth, source_fit)
+
         if counts2 is not None:
             cents2, errs2, sigmas2, areas_film = analyze_gaussian(count_rate2, roi_down, roi_up)
             TabList[num][1].areas_film = areas_film
@@ -3044,6 +3050,8 @@ class Plot:
         # Initialize lists for channel and counts
         self.Channel = []
         self.CountsRate = []
+        self.smooth1 = []
+        self.Fit1 = []
         self.Channel2 = []
         self.CountsRate2 = []
         self.Channel3 = []
@@ -3078,7 +3086,6 @@ class Plot:
                 Data.write(str(self.CountsRate[i]) + "\n")
                 j += 1
         
-
         Data.close()
 
         # Update total counts and display in the extra frame
@@ -3141,6 +3148,12 @@ class Plot:
 
         # Pack the plot widget into the Tkinter frame
         self.figure_canvas.get_tk_widget().pack()
+
+    #def plot_gaussian(self, channel, countRate):
+        #self.smooth1 = channel
+        #self.Fit1 = countRate
+
+ 
 
     def destroyer(self):
         # Remove the last overlay line (e.g., threshold line) from the plot

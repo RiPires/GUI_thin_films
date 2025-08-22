@@ -1883,6 +1883,14 @@ def SourceReader(*args):
 # Updates the algorithm input interface for the selected analysis #
 # method in the current tab                                       #
 ###################################################################
+def ROI_Select_Alg_Once(btn):
+    ROI_Select_Alg()              # run your original function
+    btn.config(state="disabled")  # disable button after first click
+
+def Threshold_Alg_Once(btn):
+    Threshold_Alg()               # run your original function
+    btn.config(state="disabled")  # disable button after first click
+
 def Method(*args):
     """
     Updates the algorithm input interface for the selected analysis method in the current tab.
@@ -1939,8 +1947,12 @@ def Method(*args):
                  text='Please input Threshold: ').grid(row=2, columnspan=3)
         tk.Entry(TabList[num][1].AlgFrame, textvariable=TabList[num][1].Algorithm, relief='sunken',
                  borderwidth=2).grid(row=3, columnspan=3)
-        tk.Button(TabList[num][1].AlgFrame, text='Search', 
-                  command=Threshold_Alg).grid(row=4, column=0)
+        search_btn = tk.Button(
+            TabList[num][1].AlgFrame,
+            text="Search",
+            command=lambda b=None: Threshold_Alg_Once(search_btn) # disable button after first click
+        )
+        search_btn.grid(row=4, column=0)
         tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
                   command=Unchecked_Results).grid(row=4, column=1)
         tk.Button(TabList[num][1].AlgFrame, text='Remove All',
@@ -1986,8 +1998,12 @@ def Method(*args):
                      relief='sunken', borderwidth=2).grid(row=3+idx, column=1)
             """
         
-        tk.Button(TabList[num][1].AlgFrame, text='Search', 
-                  command=ROI_Select_Alg).grid(row=9, column=0)
+        search_btn = tk.Button(
+            TabList[num][1].AlgFrame,
+            text="Search",
+            command=lambda b=None: ROI_Select_Alg_Once(search_btn)
+        )
+        search_btn.grid(row=9, column=0)
         tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
                   command=Unchecked_Results).grid(row=9, column=1)
         tk.Button(TabList[num][1].AlgFrame, text='Remove All',
@@ -3050,6 +3066,7 @@ class Plot:
         # Initialize lists for channel and counts
         self.Channel = []
         self.CountsRate = []
+        self.Counts = []
         self.smooth1 = []
         self.Fit1 = []
         self.Channel2 = []
@@ -3080,11 +3097,18 @@ class Plot:
         # If the file is an .mca file, process accordingly (specific to AEL machine format)
         if Name[-4:] == ".mca":
             for i in range(len(CountsNumberList) - 1):
-                self.CountsRate.append(int(CountsNumberList[i])/ real_time1)
-                #total_sum += self.Counts[j]
-                self.Channel.append(i + 1)
-                Data.write(str(self.CountsRate[i]) + "\n")
-                j += 1
+                if TabList[num][1].tab_kind == 5:
+                    self.CountsRate.append(int(CountsNumberList[i])/ real_time1)
+                    #total_sum += self.Counts[j]
+                    self.Channel.append(i + 1)
+                    Data.write(str(self.CountsRate[i]) + "\n")
+                    j += 1
+
+                else:
+                    self.Counts.append(int(CountsNumberList[i]))
+                    self.Channel.append(i + 1)
+                    Data.write(str(self.Counts[i]) + "\n")
+                    j += 1
         
         Data.close()
 
@@ -3129,7 +3153,11 @@ class Plot:
     def subplots(self):
         # Create the plot with channels on x-axis and counts on y-axis
         self.axes = self.figure.add_subplot()
-        self.axes.plot(self.Channel, self.CountsRate, '*', label='Source')
+        if TabList[Current_Tab()][1].tab_kind == 5:
+            self.axes.plot(self.Channel, self.CountsRate, '*', label='Source')
+
+        else:
+            self.axes.plot(self.Channel, self.Counts, '*', label='Source')
 
         # If second dataset exists, plot it
         if self.CountsRate2:
@@ -3140,7 +3168,10 @@ class Plot:
 
         self.axes.set_title(self.Title)
         self.axes.set_xlabel('Channel')
-        self.axes.set_ylabel('Counts Rate (counts/sec)')
+        if TabList[Current_Tab()][1].tab_kind == 5:
+            self.axes.set_ylabel('Counts Rate (counts/sec)')
+        else:
+            self.axes.set_ylabel('Counts')
         self.axes.legend()
 
         # Connect mouse click event for manual selection

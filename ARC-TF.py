@@ -1723,15 +1723,16 @@ def DataUploader():
 
         def upload_bkg():
             mode_window.destroy()
-            bkg_file = fd.askopenfilename(title='Open Background File', filetypes=[('Text Files', '*.mca'), ('All Files', '*.*')])
-            if not bkg_file:
-                return
 
             try:
                 source_data = TabList[num][5].source_data
                 source_file = TabList[num][5].source_file
             except AttributeError:
                 tk.messagebox.showerror("Missing Source File", "Please upload a Source file first using 'Source Only'.")
+                return
+
+            bkg_file = fd.askopenfilename(title='Open Background File', filetypes=[('Text Files', '*.mca'), ('All Files', '*.*')])
+            if not bkg_file:
                 return
 
             film_data = getattr(TabList[num][5], 'film_data', None)
@@ -1955,8 +1956,9 @@ def Method(*args):
         search_btn.grid(row=4, column=0)
         tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
                   command=Unchecked_Results).grid(row=4, column=1)
+        # Make sure the search button can be re-enabled after clearing results
         tk.Button(TabList[num][1].AlgFrame, text='Remove All',
-                  command=lambda: ClearWidget('Results', 1)).grid(row=4, column=2)
+                  command=lambda: (ClearWidget('Results', 1), search_btn.config(state="normal"))).grid(row=4, column=2)
 
     elif decider == 'ROI Select':
         # ROI Select: Entry fields for up to 6 ROIs and buttons for peak detection
@@ -2004,10 +2006,15 @@ def Method(*args):
             command=lambda b=None: ROI_Select_Alg_Once(search_btn)
         )
         search_btn.grid(row=9, column=0)
-        tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
+
+        # Only show "Remove Unchecked" if not XRA tab
+        if TabList[num][1].tab_kind != 5:
+            tk.Button(TabList[num][1].AlgFrame, text='Remove Unchecked',
                   command=Unchecked_Results).grid(row=9, column=1)
-        tk.Button(TabList[num][1].AlgFrame, text='Remove All',
-                  command=lambda: ClearWidget('Results', 1)).grid(row=9, column=2)
+            
+        # Make sure the search button can be re-enabled after clearing results
+        tk.Button(TabList[num][1].AlgFrame, text='Remove All', command=lambda: (ClearWidget('Results', 1), search_btn.config(state="normal"))).grid(row=9, column=2) 
+    
          
     return
 
@@ -3114,12 +3121,18 @@ class Plot:
 
         # Update total counts and display in the extra frame
         TabList[num][1].Extra_Frame.grid(column=0, row=1, sticky="nw")
-        
-        tk.Label(TabList[num][1].Extra_Frame, text="Source:").grid(row=0, column=0, sticky="w")
-        tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
-        
+        if TabList[num][1].tab_kind == 1:
+            tk.Label(TabList[num][1].Extra_Frame).grid(row=0, column=0, sticky="w")
+            tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
+            
+        if TabList[num][1].tab_kind == 2:
+            tk.Label(TabList[num][1].Extra_Frame).grid(row=0, column=0, sticky="w")
+            tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
+
         #For XRA tab, also show File 2 time
         if TabList[num][1].tab_kind == 5:
+            tk.Label(TabList[num][1].Extra_Frame, text="Source:").grid(row=0, column=0, sticky="w")
+            tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time.get()).grid(row=0, column=1, sticky="w")
             tk.Label(TabList[num][1].Extra_Frame, text="Source+Film:").grid(row=1, column=0, sticky="w")
             tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time_2.get()).grid(row=1, column=1, sticky="w")
             if File3 is not None:
@@ -3127,11 +3140,11 @@ class Plot:
                 tk.Label(TabList[num][1].Extra_Frame, text=TabList[num][1].Real_Time_3.get()).grid(row=2, column=1, sticky="w")
 
         # Set plot title based on tab type
-        if TabTracker[num] < 0:
+        if TabList[num][1].tab_kind == 1:
             self.Title = 'Calibration Trial ' + str(-TabTracker[num])
-        elif TabTracker[num] > 0:
+        elif TabList[num][1].tab_kind == 2:
             self.Title = 'Material Trial ' + str(TabTracker[num])
-        else:
+        elif TabList[num][1].tab_kind == 5:
             self.Title = 'XRA Analysis'
 
         # If this is an XRA tab and File2 is provided, parse second dataset
@@ -3156,8 +3169,11 @@ class Plot:
         if TabList[Current_Tab()][1].tab_kind == 5:
             self.axes.plot(self.Channel, self.CountsRate, '*', label='Source')
 
-        else:
-            self.axes.plot(self.Channel, self.Counts, '*', label='Source')
+        elif TabList[Current_Tab()][1].tab_kind == 1:
+            self.axes.plot(self.Channel, self.Counts, '*', label='Calibration')
+
+        elif TabList[Current_Tab()][1].tab_kind == 2:
+            self.axes.plot(self.Channel, self.Counts, '*', label='Material')    
 
         # If second dataset exists, plot it
         if self.CountsRate2:

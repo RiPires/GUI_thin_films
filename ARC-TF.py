@@ -807,7 +807,7 @@ def get_mu_from_table(film_name, source_name):
     mass_coeff = float(row[col_name])
     return density * mass_coeff  # mu in cm^-1
 
-def run_thickness_calc(): #NOT READY yet
+def run_thickness_calc():
     num = Current_Tab()
 
     choice = TabList[num][5].options.get()
@@ -913,7 +913,7 @@ def ResultManager():
                     ).grid(row=j, column=3)
 
                 tk.Label(TabList[num][1].ResultFrame, text='Attenuation: ').grid(row=4, column=0)
-                TabList[num][5].options = tk.StringVar(value="??")
+                TabList[num][5].options = tk.StringVar(value="Options")
                 options_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].options, *TabList[num][5].options_list)
                 options_menu.config(width=6)
                 options_menu.grid(row=4, column=1)

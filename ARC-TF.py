@@ -836,7 +836,10 @@ def run_thickness_calc(): #NOT READY yet
     thickness = film_thickness(N, N0, Nb, mu)
     uncertainty_value = uncertainty(N, N0, Nb, mu, time1, time2, time3)
 
-    result_text = f"Thickness = {thickness:.2f} ± {uncertainty_value:.2f} nm"
+    if thickness < 1000:
+        result_text = f"Thickness = {thickness:.2f} ± {uncertainty_value:.2f} nm"
+    else:
+        result_text = f"Thickness = {thickness/1000:.2f} ± {uncertainty_value/1000:.2f} µm"
     TabList[num][1].result_label.config(text=result_text)
 
 

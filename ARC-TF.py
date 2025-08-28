@@ -837,9 +837,9 @@ def run_thickness_calc():
     uncertainty_value = uncertainty(N, N0, Nb, mu, time1, time2, time3)
 
     if thickness < 1000:
-        result_text = f"Thickness = {thickness:.2f} ± {uncertainty_value:.2f} nm"
+        result_text = f"Thickness = ({thickness:.0f} ± {uncertainty_value:.0f}) nm"
     else:
-        result_text = f"Thickness = {thickness/1000:.2f} ± {uncertainty_value/1000:.2f} µm"
+        result_text = f"Thickness = ({thickness/1000:.0f} ± {uncertainty_value/1000:.0f}) µm"
     TabList[num][1].result_label.config(text=result_text)
 
 
@@ -903,13 +903,13 @@ def ResultManager():
 
                     tk.Label(
                     TabList[num][1].ResultFrame,
-                    text='\t Area = ' + str("{:.1f}".format(values[j][3]))
+                    text='\t Area = ' + str("{:.1f}".format(values[j][3])) + ' s⁻¹'
                     ).grid(row=j, column=3)
 
                 else:
                     tk.Label(
                     TabList[num][1].ResultFrame,
-                    text='\t Area = ' + str("{:.6f}".format(values[j][3]))
+                    text='\t Area = ' + str("{:.3e}".format(values[j][3])) + ' s⁻¹'
                     ).grid(row=j, column=3)
 
                 tk.Label(TabList[num][1].ResultFrame, text='Attenuation: ').grid(row=4, column=0)

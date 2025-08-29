@@ -837,9 +837,14 @@ def run_thickness_calc():
     uncertainty_value = uncertainty(N, N0, Nb, mu, time1, time2, time3)
 
     if thickness < 1000:
-        result_text = f"Thickness = ({thickness:.0f} ± {uncertainty_value:.0f}) nm"
+        result_text = f"Thickness = ({thickness:.0f} ± {round(uncertainty_value, -int(floor(log10(abs(uncertainty_value))))) if uncertainty_value < 1 else int(round(uncertainty_value, 0))}) nm"
+        print(uncertainty_value)
     else:
-        result_text = f"Thickness = ({thickness/1000:.0f} ± {uncertainty_value/1000:.0f}) µm"
+        result_text = f"Thickness = ({round(thickness/1000, -int(floor(log10(abs(uncertainty_value/1000))))):.{-int(floor(log10(abs(uncertainty_value/1000))))}f} ± {round(uncertainty_value/1000, -int(floor(log10(abs(uncertainty_value/1000))))):.{-int(floor(log10(abs(uncertainty_value/1000))))}f}) µm"
+        print(thickness)
+        print(uncertainty_value)
+        print(uncertainty_value/1000)
+
     TabList[num][1].result_label.config(text=result_text)
 
 

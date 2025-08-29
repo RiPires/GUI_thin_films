@@ -12,9 +12,10 @@
 ## the first version of ARC-TF, can be searched for by the reference LIP-STUDENTS-23-15.                ##
 ## Directly available at https://www.lip.pt/files/training/papers/2023/pdf/2023-PAPER-179-15.pdf.       ##
 ##                                                                                                      ##
-## Authors: Alexandre Gusmão (1),           alex_vng@hotmail.com,   https://github.com/AlexVnGit        ##
-##          Ricardo Matoza Pires (1,2),     rpires@lip.pt,          https://github.com/RiPires          ##
-##          Tomás Campante Tavares (1,2),   tmctavares@lip.pt,      https://github.com/TomasCampante    ##
+## Authors: Alexandre Gusmão (1,2),        alex_vng@hotmail.com,     https://github.com/AlexVnGit       ##
+##          Ricardo Matoza Pires (1,2),    rpires@lip.pt,            https://github.com/RiPires         ##
+##          Tomás Campante Tavares (1,2),  tmctavares@lip.pt,        https://github.com/TomasCampante   ##
+##          Aysu Ismayilova (2,3),         aysuismaillova@gmail.com  https://github.com/aysuismailova   ##
 ##                                                                                                      ##
 ##  (1) Faculty of Sciences of the Universty of Lisbon (FCUL),                                          ##
 ##      Rua Ernesto de Vasconcelos, 1749-016 Lisboa, Portugal,                                          ##
@@ -23,6 +24,10 @@
 ##  (2) Laboratory of Instrumentation and Experimental Particle Physics (LIP)                           ##
 ##      NUC-RIA group (Nuclear Reactions, Instrumentation and Astrophysics)                             ##
 ##      Av. Prof. Gama Pinto, 2, 1649-003 Lisboa, Portugal                                              ##
+##                                                                                                      ##
+##  (3) Kaunas University of Technology (KTU)                                                           ##
+##      Mathematics and Natural Sciences Faculty,                                                       ##
+##      Studentų St. 50, XI Chamber, Kaunas                                                             ##
 ##                                                                                                      ##
 ##########################################################################################################
 
@@ -782,7 +787,7 @@ def Calculate_Thickness():
 df_xra = pd.read_csv("Files/xra.txt", sep="\t") 
 films_list = df_xra["Element"].dropna().tolist() #takes the film materials
 sources = list(df_xra.columns[4:]) #columns after 5th
-sources = [col.replace("mu ", "").replace(" K_alpha", "") for col in sources]
+sources = [col.replace("mu ", "") for col in sources]
 
 def get_selected_film(num):
     # Return the film material currently selected in the ROI frame OptionMenu.
@@ -929,7 +934,6 @@ def ResultManager():
 
                 TabList[num][5].source_data = tk.StringVar(value="Sources")
                 source_menu = tk.OptionMenu(TabList[num][1].ResultFrame, TabList[num][5].source_data, *sources)
-                source_menu.config(width=6)
 
                 run_button = tk.Button(TabList[num][1].ResultFrame, text="Run", command=run_thickness_calc)
                 TabList[num][1].mu_label = tk.Label(TabList[num][1].ResultFrame)

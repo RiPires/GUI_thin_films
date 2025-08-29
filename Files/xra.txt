@@ -1,4 +1,4 @@
-Element	Z	A	p (g/cm^3)	mu Cu K_alpha	mu Ag K_alpha	mu Ba K_alpha	mu Mo K_alpha	mu Rb K_alpha	mu Tb K_alpha
+Element	Z	A	p (g/cm^3)	mu Cu  Kα —  8.041 keV	mu Ag  Kα — 22.103 keV	mu Ba  Kα — 32.061 keV	mu Mo Kα — 17.443 keV	mu Rb  Kα — 13.376 keV	mu Tb  Kα — 44.218 keV
 Sn	50	118.71	7.31	2.47E+02	1.64E+01	3.54E+01	3.10E+01	6.34E+01	1.48E+01
 Ag	47	107.8682	10.5	2.14E+02		3.09E+01	2.65E+01	5.44E+01	1.32E+01
 Al	13	26.981539	2.7	4.96E+01	2.59E+00	9.53E-01	5.11E+00	1.11E+01	4.62E-01

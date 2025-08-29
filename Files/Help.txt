@@ -5,10 +5,11 @@ Welcome to ARC-TF!
 
 Workflow
 
-The program has 3 types of tabs. The first one, the Final Results Tab is a special tab, and exhibits all 
-the results calculated by the remainder two types of tabs. These are the Calibration Analysis Tabs, and the 
-Material Analysis Tabs. The user can create and delete these last two types of tabs freely. The options 
-available are different depending on which type of Tab the user opens.
+The program supports four different types of tabs, each with a distinct purpose. The Final Results Tab is a special tab that consolidates and displays all results generated within the Calibration Analysis and Material Analysis tabs. This tab cannot be created or deleted manually by the user, as it is automatically maintained by the program. Its primary function is to provide an overview of the outcomes produced in the other analysis tabs.
+The Calibration Analysis Tabs are dedicated to performing calibration-related computations. Users are free to create and delete these tabs depending on their needs. Each calibration tab offers a set of options and tools specific to calibration workflows.
+Similarly, the Material Analysis Tabs are designed for performing analyses on different film materials. As with the calibration tabs, users can freely create or delete these tabs as required. The options available within a material analysis tab differ from those found in calibration tabs.
+The final type, the XRA Analysis Tab, is a recently added feature. Unlike the other three tab types, the XRA Analysis Tab is fully independent and does not interact with the Final Results Tab, Calibration Analysis Tabs, or Material Analysis Tabs. It provides its own dedicated functionality for XRA-specific analysis.
+
 
 Calibration Tab:
 
@@ -32,6 +33,16 @@ user can then select the material of the thin film. Afterwards, all that is left
 calibration trials. The program will only use the energy from the radiation sources of the first calibration 
 trial. This is why the the choice of peaks is of great importance. Finally, the user can calculate the 
 thickness by clicking the button. The results will appear below the button, and in the final results tab.
+
+XRA Tab:
+
+The XRA Analysis Tab is independent of all other tab types and is specifically designed for film thickness 
+determination. When using this tab, the first required step is to plot the Source Data, as the program will 
+not allow the user to upload or plot any other data beforehand. Once the Source Data has been provided, the 
+ser can then upload and plot the Source + Film Data, as well as optionally include Background Data. From 
+the resulting plots, emission lines can be identified and subsequently used during the film thickness 
+determination process. Unlike other analysis techniques within the program, the XRA Tab supports only a 
+single method for peak analysis: the ROI (Region of Interest) Select Algorithm.
 
 Other Features:
 
@@ -133,3 +144,32 @@ is computed, and with the internal database of a few materials, an approximate t
 This is done for every channel corresponding to a peak. After this step, an average of the thickness is 
 obtained, while its uncertainty is computed using standard deviation over the square root of the number 
 of peaks minus one. The results are then presented in the selected units.
+
+ROI Select Algorithm:
+
+The ROI Select Algorithm is applied across three different tabs of the application: Calibration, Material,
+and XRA. Each of these tabs makes use of the algorithm in slightly different ways, depending on the type
+of analysis being performed.
+In the Calibration and Material tabs, users can select up to six regions of interest. For each selected 
+ROI, the algorithm calculates three key parameters: the centroid, the sigma, and the error associated with 
+the peak. These values are determined using traditional methods, which directly analyze the data within the 
+chosen regions. As a result, the user can extract up to six sets of centroid, sigma, and error values 
+corresponding to the selected peaks.
+The XRA tab, by contrast, allows for the selection of only one ROI, reflecting the different requirements 
+of its functionality. In this tab, a Gaussian fit is applied to the selected emission line. From this fit, 
+the algorithm derives the centroid, sigma, and the area under the curve. The fitting process is carried 
+out for Source, Source + Film, and if available for Background data. The calculated area represents the 
+integrated area under the Gaussian curve, within the ROI, and corresponds to the intensity of the selected emission line.
+
+
+
+The Thickness Calculation Algorithm for XRA:
+After peak analysis for the XRA tab, the user has two options for choosing the linear attenuation coefficient: 
+Default and User.
+When the Default option is selected, the user must specify the film material and the source that were used during 
+the experiment. These values are then retrieved from the database, and the program automatically applies the 
+corresponding parameter for the thickness calculation.
+When the User option is selected, the user directly needs to enter the linear attenuation coefficient of the material. 
+This option is particularly useful when the film material used in the experiment is not included in the default database.
+In both cases, once the Run button is clicked, the interface calculates and displays the film thickness together with 
+the associated uncertainty.

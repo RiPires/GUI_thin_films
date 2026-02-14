@@ -59,9 +59,10 @@ def peakCentroid(x1, x2, values):
         else:
             bgd = m * (i - x1) + yL  # background
 
-        soma += myCellValue - bgd
-        xsoma += i * (myCellValue - bgd)
+        soma += myCellValue
+        xsoma += i * myCellValue
 
+    print("here" + str(bgd))
     if soma > 0:
         return xsoma / soma
     else:
